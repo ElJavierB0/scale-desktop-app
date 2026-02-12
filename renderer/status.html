@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Scale Desktop App - Status</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+  <div class="status-container">
+    <div class="status-header">
+      <h1>Scale Desktop App</h1>
+      <div class="status-badge running" id="service-badge">
+        <span class="dot"></span>
+        <span id="badge-text">Activo</span>
+      </div>
+    </div>
+
+    <!-- Station info -->
+    <div class="info-card">
+      <h3>Informacion</h3>
+      <table class="summary-table">
+        <tr>
+          <th>Servidor</th>
+          <td id="info-server">-</td>
+        </tr>
+        <tr>
+          <th>Estacion</th>
+          <td id="info-station">-</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Scale readings -->
+    <div id="scales-container"></div>
+
+    <!-- Actions -->
+    <div class="status-actions">
+      <button class="btn btn-outline" id="btn-reconfigure">Reconfigurar</button>
+      <button class="btn btn-danger" id="btn-stop">Detener servicio</button>
+      <button class="btn btn-success" id="btn-restart" style="display:none;">Reiniciar servicio</button>
+    </div>
+  </div>
+
+  <script src="assets/js/status.js"></script>
+</body>
+</html>

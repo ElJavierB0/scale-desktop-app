@@ -1,0 +1,151 @@
+const { ipcMain } = require('electron');
+const os = require('os');
+const configManager = require('./config-manager');
+const { getAllProfiles, getProfileById } = require('./scale-profiles');
+const { listPorts, autoDetect, testScaleReading } = require('./scale-service/serial-utils');
+const { ApiClient } = require('./scale-service/api-client');
+const { log } = require('./scale-service/logger');
+
+let scaleManager = null;
+
+function setScaleManager(manager) {
+  scaleManager = manager;
+}
+
+function registerHandlers(getMainWindow) {
+  // Step 1: Verify server connection
+  ipcMain.handle('verify-server', async (_event, url, token) => {
+    const client = new ApiClient({ serverUrl: url, bearerToken: token });
+    return await client.verifyConnection();
+  });
+
+  // Step 2: Register station
+  ipcMain.handle('register-station', async (_event, name) => {
+    const config = configManager.getAll();
+    const client = new ApiClient({ serverUrl: config.serverUrl, bearerToken: config.bearerToken });
+    const result = await client.registerStation(name);
+
+    if (result.success) {
+      configManager.set('stationId', result.data.stationId);
+      configManager.set('stationKey', result.data.stationKey);
+    }
+
+    return result;
+  });
+
+  ipcMain.handle('get-hostname', async () => {
+    return os.hostname();
+  });
+
+  // Step 3: Scale detection
+  ipcMain.handle('scan-ports', async () => {
+    return await listPorts();
+  });
+
+  ipcMain.handle('auto-detect-scales', async () => {
+    return await autoDetect();
+  });
+
+  ipcMain.handle('test-scale-reading', async (_event, portPath, profileId, customConfig) => {
+    let config;
+    if (profileId === 'custom' && customConfig) {
+      config = customConfig;
+    } else {
+      const profile = getProfileById(profileId);
+      if (!profile) return { success: false, error: 'Perfil no encontrado' };
+      config = {
+        baudRate: profile.baudRate,
+        dataBits: profile.dataBits,
+        parity: profile.parity,
+        stopBits: profile.stopBits,
+        pollCommand: profile.pollCommand,
+        delimiter: profile.delimiter,
+        timeout: 3000,
+      };
+    }
+    return await testScaleReading(portPath, config);
+  });
+
+  ipcMain.handle('get-profiles', async () => {
+    return getAllProfiles();
+  });
+
+  // Step 4: Save config and start
+  ipcMain.handle('save-config', async (_event, newConfig) => {
+    try {
+      if (newConfig.serverUrl) configManager.set('serverUrl', newConfig.serverUrl);
+      if (newConfig.bearerToken) configManager.set('bearerToken', newConfig.bearerToken);
+      if (newConfig.stationId) configManager.set('stationId', newConfig.stationId);
+      if (newConfig.stationKey) configManager.set('stationKey', newConfig.stationKey);
+      if (newConfig.scales) configManager.set('scales', newConfig.scales);
+      if (newConfig.autoLaunch !== undefined) configManager.set('autoLaunch', newConfig.autoLaunch);
+      configManager.set('configured', true);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('start-service', async () => {
+    try {
+      if (scaleManager) {
+        scaleManager.stop();
+      }
+
+      const { ScaleManager } = require('./scale-service/scale-manager');
+      const config = configManager.getAll();
+      scaleManager = new ScaleManager(config);
+
+      // Forward scale updates to renderer
+      scaleManager.onScaleUpdate = (state) => {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('scale-update', state);
+        }
+      };
+
+      await scaleManager.start();
+      return { success: true };
+    } catch (err) {
+      log('error', `Error iniciando servicio: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Status page
+  ipcMain.handle('get-service-status', async () => {
+    if (!scaleManager) return { running: false, scales: [] };
+    return scaleManager.getStatus();
+  });
+
+  ipcMain.handle('stop-service', async () => {
+    if (scaleManager) {
+      scaleManager.stop();
+      scaleManager = null;
+    }
+    return { success: true };
+  });
+
+  ipcMain.handle('get-config', async () => {
+    return configManager.getAll();
+  });
+
+  ipcMain.handle('is-configured', async () => {
+    return configManager.isConfigured();
+  });
+
+  ipcMain.handle('reconfigure', async () => {
+    if (scaleManager) {
+      scaleManager.stop();
+      scaleManager = null;
+    }
+    configManager.set('configured', false);
+    return { success: true };
+  });
+}
+
+function getScaleManager() {
+  return scaleManager;
+}
+
+module.exports = { registerHandlers, setScaleManager, getScaleManager };

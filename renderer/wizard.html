@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Scale Desktop App - Configuracion</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body>
+  <div class="wizard-container">
+    <div class="wizard-header">
+      <h1>Scale Desktop App</h1>
+      <p>Configuracion inicial</p>
+    </div>
+
+    <!-- Step indicator -->
+    <div class="steps">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3">3</div>
+      <div class="step-line" id="line-3"></div>
+      <div class="step-dot" id="dot-4">4</div>
+    </div>
+
+    <!-- Step 1: Server Connection -->
+    <div class="step-panel active" id="step-1">
+      <h2>Conexion al servidor</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Ingresa la URL del servidor y el token de
+        autenticacion.</p>
+
+      <div class="form-group">
+        <label for="serverUrl">URL del servidor</label>
+        <input type="url" id="serverUrl" placeholder="https://midominio.com">
+      </div>
+
+      <div class="form-group">
+        <label for="bearerToken">Bearer Token</label>
+        <input type="password" id="bearerToken" placeholder="Token de autenticacion">
+      </div>
+
+      <div id="alert-step1" class="alert"></div>
+
+      <div class="step-nav">
+        <div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" id="btn-verify">Verificar conexion</button>
+          <button class="btn btn-primary" id="btn-next-1" disabled>Siguiente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Register Station -->
+    <div class="step-panel" id="step-2">
+      <h2>Registrar estacion</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Asigna un nombre unico a esta computadora.
+      </p>
+
+      <div class="form-group">
+        <label for="stationName">Nombre de estacion</label>
+        <input type="text" id="stationName" placeholder="Nombre unico para esta PC">
+      </div>
+
+      <div id="alert-step2" class="alert"></div>
+
+      <div class="step-nav">
+        <button class="btn btn-outline" id="btn-back-2">Atras</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" id="btn-register">Registrar</button>
+          <button class="btn btn-primary" id="btn-next-2" disabled>Siguiente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Detect Scales -->
+    <div class="step-panel" id="step-3">
+      <h2>Detectar basculas</h2>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Busca y configura las basculas conectadas
+        por USB.</p>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="btn btn-primary" id="btn-auto-detect">Buscar basculas</button>
+        <button class="btn btn-outline" id="btn-manual-mode">Configurar manualmente</button>
+      </div>
+
+      <div id="alert-step3" class="alert"></div>
+
+      <!-- Auto-detect results -->
+      <div id="auto-detect-results" style="display:none;">
+        <h3 style="font-size:14px;margin-bottom:8px;">Basculas detectadas:</h3>
+        <div id="detected-list" class="port-list"></div>
+      </div>
+
+      <!-- Manual config -->
+      <div id="manual-config" style="display:none;">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="manual-port">Puerto serial</label>
+            <select id="manual-port">
+              <option value="">Buscando...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="manual-profile">Perfil de bascula</label>
+            <select id="manual-profile"></select>
+          </div>
+        </div>
+
+        <!-- Custom config fields (shown when profile = custom) -->
+        <div id="custom-fields" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="custom-baud">Baud Rate</label>
+              <select id="custom-baud">
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" selected>9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="custom-databits">Data Bits</label>
+              <select id="custom-databits">
+                <option value="7">7</option>
+                <option value="8" selected>8</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="custom-parity">Paridad</label>
+              <select id="custom-parity">
+                <option value="none" selected>None</option>
+                <option value="even">Even</option>
+                <option value="odd">Odd</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="custom-stopbits">Stop Bits</label>
+              <select id="custom-stopbits">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="custom-poll">Comando Poll (dejar vacio para transmision continua)</label>
+            <input type="text" id="custom-poll" placeholder="W\r\n" value="W\r\n">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="manual-scale-id">Scale ID</label>
+          <input type="text" id="manual-scale-id" placeholder="BASCULA_01">
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" id="btn-test-reading">Probar lectura</button>
+          <button class="btn btn-success btn-sm" id="btn-add-scale">Agregar bascula</button>
+        </div>
+
+        <div id="test-result" class="alert" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- Configured scales list -->
+      <div id="configured-scales" style="margin-top:16px;">
+        <h3 style="font-size:14px;margin-bottom:8px;">Basculas configuradas:</h3>
+        <div id="scales-list" class="scale-list">
+          <p style="font-size:13px;color:var(--text-muted);">Ninguna bascula configurada.</p>
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button class="btn btn-outline" id="btn-back-3">Atras</button>
+        <button class="btn btn-primary" id="btn-next-3" disabled>Siguiente</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Summary -->
+    <div class="step-panel" id="step-4">
+      <h2>Resumen</h2>
+
+      <table class="summary-table">
+        <tr>
+          <th>Servidor</th>
+          <td id="sum-server">-</td>
+        </tr>
+        <tr>
+          <th>Estacion</th>
+          <td id="sum-station">-</td>
+        </tr>
+        <tr>
+          <th>Basculas</th>
+          <td id="sum-scales">-</td>
+        </tr>
+      </table>
+
+      <div id="sum-scale-details" style="margin-top:12px;"></div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="autoLaunch">
+        <label for="autoLaunch">Iniciar automaticamente al encender la computadora</label>
+      </div>
+
+      <div id="alert-step4" class="alert"></div>
+
+      <div class="step-nav">
+        <button class="btn btn-outline" id="btn-back-4">Atras</button>
+        <button class="btn btn-success" id="btn-start">Iniciar Servicio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/wizard.js"></script>
+</body>
+
+</html>

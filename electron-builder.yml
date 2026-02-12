@@ -1,0 +1,38 @@
+appId: com.superpescaderia.scale
+productName: Scale Desktop App
+directories:
+  output: dist
+
+files:
+  - main/**/*
+  - renderer/**/*
+  - package.json
+
+asarUnpack:
+  - node_modules/@serialport/bindings-cpp/prebuilds/**/*
+
+# Single PNG icon — electron-builder auto-converts to .icns (Mac) and .ico (Win)
+icon: build/icon.png
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - dmg
+    - zip
+
+win:
+  target:
+    - nsis
+
+linux:
+  target:
+    - AppImage
+
+nsis:
+  oneClick: true
+  allowToChangeInstallationDirectory: false
+
+publish:
+  provider: github
+  owner: AlanOrtiz10
+  repo: scale-desktop-app
