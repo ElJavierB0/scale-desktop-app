@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isConfigured: () => ipcRenderer.invoke('is-configured'),
   reconfigure: () => ipcRenderer.invoke('reconfigure'),
 
+  // Scale management (from status page)
+  addScale: (scaleConfig) => ipcRenderer.invoke('add-scale', scaleConfig),
+  removeScale: (scaleId) => ipcRenderer.invoke('remove-scale', scaleId),
+
   // Events from main
   onScaleUpdate: (callback) => {
     ipcRenderer.on('scale-update', (_event, data) => callback(data));

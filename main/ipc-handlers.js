@@ -142,6 +142,85 @@ function registerHandlers(getMainWindow) {
     configManager.set('configured', false);
     return { success: true };
   });
+
+  // Scale management: add a scale and restart service
+  ipcMain.handle('add-scale', async (_event, scaleConfig) => {
+    try {
+      const config = configManager.getAll();
+      const scales = config.scales || [];
+
+      // Check duplicates
+      if (scales.find(s => s.scaleId === scaleConfig.scaleId)) {
+        return { success: false, error: 'Ya existe una bascula con ese Scale ID' };
+      }
+      if (scales.find(s => s.port === scaleConfig.port)) {
+        return { success: false, error: 'Ya existe una bascula configurada en ese puerto' };
+      }
+
+      scales.push(scaleConfig);
+      configManager.set('scales', scales);
+
+      // Restart service to pick up new scale
+      if (scaleManager) {
+        scaleManager.stop();
+      }
+
+      const { ScaleManager } = require('./scale-service/scale-manager');
+      const updatedConfig = configManager.getAll();
+      scaleManager = new ScaleManager(updatedConfig);
+
+      scaleManager.onScaleUpdate = (state) => {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('scale-update', state);
+        }
+      };
+
+      await scaleManager.start();
+      log('info', `Bascula agregada: ${scaleConfig.scaleId} en ${scaleConfig.port}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error agregando bascula: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Scale management: remove a scale and restart service
+  ipcMain.handle('remove-scale', async (_event, scaleId) => {
+    try {
+      const config = configManager.getAll();
+      const scales = (config.scales || []).filter(s => s.scaleId !== scaleId);
+      configManager.set('scales', scales);
+
+      // Restart service
+      if (scaleManager) {
+        scaleManager.stop();
+      }
+
+      if (scales.length > 0) {
+        const { ScaleManager } = require('./scale-service/scale-manager');
+        const updatedConfig = configManager.getAll();
+        scaleManager = new ScaleManager(updatedConfig);
+
+        scaleManager.onScaleUpdate = (state) => {
+          const win = getMainWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('scale-update', state);
+          }
+        };
+
+        await scaleManager.start();
+      } else {
+        scaleManager = null;
+      }
+
+      log('info', `Bascula eliminada: ${scaleId}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error eliminando bascula: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
 }
 
 function getScaleManager() {
