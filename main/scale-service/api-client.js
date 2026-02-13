@@ -26,11 +26,16 @@ class ApiClient {
     try {
       const response = await fetch(this.url('/health'), {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.bearerToken}`,
+        },
         signal: AbortSignal.timeout(5000),
       });
       if (!response.ok) {
-        return { success: false, error: `Servidor respondio ${response.status}` };
+        const body = await response.json().catch(() => null);
+        const msg = body?.error || `Servidor respondio ${response.status}`;
+        return { success: false, error: msg };
       }
       const data = await response.json();
       return { success: true, data };
@@ -80,6 +85,19 @@ class ApiClient {
       } else {
         return { success: false, status: response.status };
       }
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  async disconnect() {
+    try {
+      const response = await fetch(this.url('/disconnect'), {
+        method: 'POST',
+        headers: this.headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      return { success: response.ok };
     } catch (err) {
       return { success: false, error: err.message };
     }

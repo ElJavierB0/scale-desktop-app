@@ -114,7 +114,11 @@ function registerHandlers(getMainWindow) {
 
   // Status page
   ipcMain.handle('get-service-status', async () => {
-    if (!scaleManager) return { running: false, scales: [] };
+    if (!scaleManager) {
+      // Station is still active even with no scales, unless explicitly stopped
+      const config = configManager.getAll();
+      return { running: config.configured === true, scales: [] };
+    }
     return scaleManager.getStatus();
   });
 
@@ -134,13 +138,95 @@ function registerHandlers(getMainWindow) {
     return configManager.isConfigured();
   });
 
+  // Reconfigure: clear station + scales, keep server credentials
   ipcMain.handle('reconfigure', async () => {
-    if (scaleManager) {
-      scaleManager.stop();
-      scaleManager = null;
+    try {
+      if (scaleManager) {
+        scaleManager.stop();
+        scaleManager = null;
+      }
+      configManager.set('stationId', '');
+      configManager.set('stationKey', '');
+      configManager.set('scales', []);
+      configManager.set('configured', false);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error reconfigurando: ${err.message}`);
+      return { success: false, error: err.message };
     }
-    configManager.set('configured', false);
-    return { success: true };
+  });
+
+  // Edit a scale's configuration
+  ipcMain.handle('edit-scale', async (_event, scaleId, newConfig) => {
+    try {
+      const config = configManager.getAll();
+      const scales = config.scales || [];
+      const index = scales.findIndex(s => s.scaleId === scaleId);
+
+      if (index === -1) {
+        return { success: false, error: 'Bascula no encontrada' };
+      }
+
+      // Check port conflicts (if port changed)
+      if (newConfig.port && newConfig.port !== scales[index].port) {
+        const conflict = scales.find((s, i) => i !== index && s.port === newConfig.port);
+        if (conflict) {
+          return { success: false, error: `El puerto ${newConfig.port} ya esta en uso por ${conflict.scaleId}` };
+        }
+      }
+
+      // Merge new config into existing
+      scales[index] = { ...scales[index], ...newConfig };
+      configManager.set('scales', scales);
+
+      // Restart service to pick up changes
+      if (scaleManager) {
+        scaleManager.stop();
+      }
+
+      if (scales.length > 0) {
+        const { ScaleManager } = require('./scale-service/scale-manager');
+        const updatedConfig = configManager.getAll();
+        scaleManager = new ScaleManager(updatedConfig);
+
+        scaleManager.onScaleUpdate = (state) => {
+          const win = getMainWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send('scale-update', state);
+          }
+        };
+
+        await scaleManager.start();
+      }
+
+      log('info', `Bascula editada: ${scaleId}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error editando bascula: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Disconnect from server (marks station inactive)
+  ipcMain.handle('disconnect', async () => {
+    try {
+      const config = configManager.getAll();
+      if (config.serverUrl && config.bearerToken && config.stationKey) {
+        const { ApiClient } = require('./scale-service/api-client');
+        const client = new ApiClient(config);
+        await client.disconnect();
+      }
+
+      if (scaleManager) {
+        scaleManager.stop();
+        scaleManager = null;
+      }
+
+      return { success: true };
+    } catch (err) {
+      log('error', `Error desconectando: ${err.message}`);
+      return { success: false, error: err.message };
+    }
   });
 
   // Scale management: add a scale and restart service

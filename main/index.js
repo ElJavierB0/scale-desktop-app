@@ -56,43 +56,32 @@ app.whenReady().then(async () => {
   // Register IPC handlers
   registerHandlers(getMainWindow);
 
-  // Determine which page to show
-  const configured = configManager.isConfigured();
-
-  if (configured) {
-    // Already configured: show status page and start service
-    mainWindow = createWindow('status.html');
-
-    // Auto-start the scale service
-    try {
-      const { ScaleManager } = require('./scale-service/scale-manager');
-      const config = configManager.getAll();
-      const manager = new ScaleManager(config);
-
-      manager.onScaleUpdate = (state) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('scale-update', state);
-        }
-      };
-
-      const { setScaleManager } = require('./ipc-handlers');
-      setScaleManager(manager);
-
-      await manager.start();
-      log('info', 'Servicio iniciado automaticamente');
-    } catch (err) {
-      log('error', `Error auto-iniciando servicio: ${err.message}`);
-    }
-  } else {
-    // First run: show wizard
-    mainWindow = createWindow('wizard.html');
-  }
+  // Start on login page
+  mainWindow = createWindow('login.html');
 
   // Create system tray
-  createTray(mainWindow, () => {
+  createTray(mainWindow, async () => {
     isQuitting = true;
+
+    // Disconnect from server on quit
     const manager = getScaleManager();
-    if (manager) manager.stop();
+    if (manager) {
+      manager.stop();
+    }
+
+    // Call disconnect API
+    try {
+      const config = configManager.getAll();
+      if (config.serverUrl && config.bearerToken && config.stationKey) {
+        const { ApiClient } = require('./scale-service/api-client');
+        const client = new ApiClient(config);
+        await client.disconnect();
+        log('info', 'Desconectado del servidor');
+      }
+    } catch (err) {
+      log('warn', `Error al desconectar: ${err.message}`);
+    }
+
     destroyTray();
     app.quit();
   });
@@ -132,17 +121,17 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Navigation between wizard and status
+// Navigation between login and app
 const { ipcMain } = require('electron');
 
-ipcMain.on('navigate-to-status', () => {
+ipcMain.on('navigate-to-app', () => {
   if (mainWindow) {
-    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'status.html'));
+    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'app.html'));
   }
 });
 
-ipcMain.on('navigate-to-wizard', () => {
+ipcMain.on('navigate-to-login', () => {
   if (mainWindow) {
-    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'wizard.html'));
+    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'login.html'));
   }
 });

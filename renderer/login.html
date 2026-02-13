@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Scale Desktop App - Login</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Scale Desktop App</h1>
+        <p>Conectar al servidor</p>
+      </div>
+
+      <div class="form-group">
+        <label for="serverUrl">URL del servidor</label>
+        <input type="url" id="serverUrl" placeholder="https://midominio.com">
+      </div>
+
+      <div class="form-group">
+        <label for="bearerToken">Codigo de conexion</label>
+        <input type="password" id="bearerToken" placeholder="Token de autenticacion">
+      </div>
+
+      <div id="alert-login" class="alert"></div>
+
+      <button class="btn btn-primary btn-block" id="btn-connect">Conectar</button>
+    </div>
+  </div>
+
+  <script src="assets/js/login.js"></script>
+</body>
+
+</html>

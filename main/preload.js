@@ -1,34 +1,35 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  // Wizard step 1: Server connection
+  // Server connection
   verifyServer: (url, token) => ipcRenderer.invoke('verify-server', url, token),
 
-  // Wizard step 2: Register station
+  // Station
   registerStation: (name) => ipcRenderer.invoke('register-station', name),
   getHostname: () => ipcRenderer.invoke('get-hostname'),
 
-  // Wizard step 3: Scale detection
+  // Scale detection
   scanPorts: () => ipcRenderer.invoke('scan-ports'),
   autoDetectScales: () => ipcRenderer.invoke('auto-detect-scales'),
   testScaleReading: (portPath, profileId, customConfig) =>
     ipcRenderer.invoke('test-scale-reading', portPath, profileId, customConfig),
   getProfiles: () => ipcRenderer.invoke('get-profiles'),
 
-  // Wizard step 4: Save and start
+  // Config
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
-  startService: () => ipcRenderer.invoke('start-service'),
-
-  // Status page
-  getServiceStatus: () => ipcRenderer.invoke('get-service-status'),
-  stopService: () => ipcRenderer.invoke('stop-service'),
   getConfig: () => ipcRenderer.invoke('get-config'),
-  isConfigured: () => ipcRenderer.invoke('is-configured'),
-  reconfigure: () => ipcRenderer.invoke('reconfigure'),
 
-  // Scale management (from status page)
+  // Service
+  startService: () => ipcRenderer.invoke('start-service'),
+  stopService: () => ipcRenderer.invoke('stop-service'),
+  getServiceStatus: () => ipcRenderer.invoke('get-service-status'),
+
+  // Scale management
   addScale: (scaleConfig) => ipcRenderer.invoke('add-scale', scaleConfig),
   removeScale: (scaleId) => ipcRenderer.invoke('remove-scale', scaleId),
+  editScale: (scaleId, newConfig) => ipcRenderer.invoke('edit-scale', scaleId, newConfig),
+  disconnect: () => ipcRenderer.invoke('disconnect'),
+  reconfigure: () => ipcRenderer.invoke('reconfigure'),
 
   // Events from main
   onScaleUpdate: (callback) => {
@@ -42,6 +43,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Navigation
-  navigateToStatus: () => ipcRenderer.send('navigate-to-status'),
-  navigateToWizard: () => ipcRenderer.send('navigate-to-wizard'),
+  navigateToApp: () => ipcRenderer.send('navigate-to-app'),
+  navigateToLogin: () => ipcRenderer.send('navigate-to-login'),
 });

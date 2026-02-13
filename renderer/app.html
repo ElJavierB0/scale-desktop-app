@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Scale Desktop App</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body>
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>Scale Desktop App</h2>
+      <button class="sidebar-close" id="sidebar-close">&times;</button>
+    </div>
+    <ul class="sidebar-menu">
+      <li class="sidebar-item active" data-view="estacion" id="menu-estacion">
+        <span class="sidebar-icon">&#9874;</span>
+        <span>Estacion</span>
+      </li>
+      <li class="sidebar-item locked" data-view="lista-basculas" id="menu-lista-basculas">
+        <span class="sidebar-icon">&#9878;</span>
+        <span>Lista de Basculas</span>
+        <span class="lock-icon" id="lock-lista">&#128274;</span>
+      </li>
+      <li class="sidebar-item locked" data-view="zona-trabajo" id="menu-zona-trabajo">
+        <span class="sidebar-icon">&#9881;</span>
+        <span>Zona de Trabajo</span>
+        <span class="lock-icon" id="lock-zona">&#128274;</span>
+      </li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="btn btn-outline btn-sm btn-block" id="btn-logout">Cerrar sesion</button>
+    </div>
+  </nav>
+
+  <!-- Top bar -->
+  <header class="top-bar">
+    <button class="hamburger-btn" id="hamburger-btn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <h1 class="top-bar-title" id="top-bar-title">Estacion</h1>
+    <div class="status-badge running" id="service-badge">
+      <span class="dot"></span>
+      <span id="badge-text">Activo</span>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="app-content">
+
+    <!-- View: Estacion -->
+    <section class="view" id="view-estacion" style="position:relative;min-height:calc(100vh - 120px);">
+      <!-- Register mode -->
+      <div id="estacion-register">
+        <div class="info-card">
+          <h3>Registrar Estacion</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Asigna un nombre unico a esta
+            computadora para identificarla en el servidor.</p>
+          <div class="form-group">
+            <label for="stationName">Nombre de estacion</label>
+            <input type="text" id="stationName" placeholder="Nombre unico para esta PC">
+          </div>
+          <div id="alert-estacion" class="alert"></div>
+          <button class="btn btn-primary" id="btn-register-station">Registrar</button>
+        </div>
+      </div>
+      <!-- Display mode -->
+      <div id="estacion-display" style="display:none;">
+        <div class="info-card">
+          <h3>Informacion de Estacion</h3>
+          <table class="summary-table">
+            <tr>
+              <th>Servidor</th>
+              <td id="est-server">-</td>
+            </tr>
+            <tr>
+              <th>Estacion ID</th>
+              <td id="est-station-id">-</td>
+            </tr>
+            <tr>
+              <th>Station Key</th>
+              <td id="est-station-key" style="word-break:break-all;">-</td>
+            </tr>
+            <tr>
+              <th>Estado</th>
+              <td id="est-status">-</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <!-- FAB reconfigure bottom-right -->
+      <div class="fab-container" id="fab-reconfigure">
+        <button class="fab-btn fab-btn-outline" id="btn-reconfigure" title="Reconfigurar estacion">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <polyline points="23 20 23 14 17 14"></polyline>
+            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- View: Lista de Basculas -->
+    <section class="view" id="view-lista-basculas" style="display:none;position:relative;min-height:calc(100vh - 120px);">
+      <div class="info-card">
+        <h3>Basculas de esta estacion</h3>
+        <div id="scales-list"></div>
+      </div>
+      <!-- FAB buttons bottom-right -->
+      <div class="fab-container">
+        <button class="fab-btn" id="btn-auto-detect" title="Buscar basculas">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="fab-btn" id="btn-manual-mode" title="Configurar manualmente">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- View: Zona de Trabajo -->
+    <section class="view" id="view-zona-trabajo" style="display:none;">
+      <!-- Sub-view: Grid -->
+      <div id="zona-grid">
+        <div id="working-scales-grid" class="scales-grid"></div>
+        <p id="zona-empty" style="font-size:13px;color:var(--text-muted);text-align:center;padding:32px;">No hay
+          basculas asignadas a la zona de trabajo.</p>
+      </div>
+      <!-- Sub-view: Detail -->
+      <div id="zona-detail" style="display:none;">
+        <button class="btn btn-outline btn-sm" id="btn-zona-back" style="margin-bottom:12px;">&#8592; Volver</button>
+        <div class="info-card">
+          <h3><span id="zona-detail-name">-</span></h3>
+          <div class="weight-display">
+            <div class="weight-value unstable" id="zona-detail-weight">0.000</div>
+            <div class="weight-unit">kg</div>
+            <div style="margin-top:8px;">
+              <span class="badge badge-warning" id="zona-detail-status">Conectando...</span>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:8px;" id="zona-detail-reads">0
+                lecturas</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Auto-detect -->
+  <div class="modal-overlay" id="modal-autodetect" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3>Buscar basculas</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Detecta automaticamente las basculas conectadas por USB.</p>
+        </div>
+        <button class="modal-close" id="modal-autodetect-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="alert-detect" class="alert"></div>
+        <div id="detected-list" class="port-list"></div>
+        <p id="detect-empty" style="font-size:13px;color:var(--text-muted);text-align:center;padding:24px 0;">Presiona "Iniciar busqueda" para detectar basculas.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary btn-sm" id="btn-start-detect">Iniciar busqueda</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Manual config -->
+  <div class="modal-overlay" id="modal-manual" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Configurar manualmente</h3>
+        <button class="modal-close" id="modal-manual-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="manual-port">Puerto serial</label>
+            <select id="manual-port"></select>
+          </div>
+          <div class="form-group">
+            <label for="manual-profile">Perfil de bascula</label>
+            <select id="manual-profile"></select>
+          </div>
+        </div>
+
+        <div id="custom-fields" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="custom-baud">Baud Rate</label>
+              <select id="custom-baud">
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" selected>9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="custom-databits">Data Bits</label>
+              <select id="custom-databits">
+                <option value="7">7</option>
+                <option value="8" selected>8</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="custom-parity">Paridad</label>
+              <select id="custom-parity">
+                <option value="none" selected>None</option>
+                <option value="even">Even</option>
+                <option value="odd">Odd</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="custom-stopbits">Stop Bits</label>
+              <select id="custom-stopbits">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="custom-poll">Comando Poll (vacio = transmision continua)</label>
+            <input type="text" id="custom-poll" placeholder="W\r\n" value="W\r\n">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="manual-scale-id">Scale ID</label>
+          <input type="text" id="manual-scale-id" placeholder="BASCULA_01">
+        </div>
+
+        <div id="test-result" class="alert" style="margin-top:8px;"></div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-outline btn-sm" id="btn-test-reading">Probar lectura</button>
+          <button class="btn btn-success btn-sm" id="btn-add-scale">Agregar bascula</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Edit scale -->
+  <div class="modal-overlay" id="modal-edit" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Editar bascula</h3>
+        <button class="modal-close" id="modal-edit-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="edit-scale-id">Scale ID</label>
+          <input type="text" id="edit-scale-id" readonly
+            style="background:#f1f5f9;cursor:not-allowed;">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-port">Puerto serial</label>
+            <select id="edit-port"></select>
+          </div>
+          <div class="form-group">
+            <label for="edit-profile">Perfil de bascula</label>
+            <select id="edit-profile"></select>
+          </div>
+        </div>
+
+        <div id="edit-custom-fields" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-custom-baud">Baud Rate</label>
+              <select id="edit-custom-baud">
+                <option value="2400">2400</option>
+                <option value="4800">4800</option>
+                <option value="9600" selected>9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200">115200</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-custom-databits">Data Bits</label>
+              <select id="edit-custom-databits">
+                <option value="7">7</option>
+                <option value="8" selected>8</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-custom-parity">Paridad</label>
+              <select id="edit-custom-parity">
+                <option value="none" selected>None</option>
+                <option value="even">Even</option>
+                <option value="odd">Odd</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-custom-stopbits">Stop Bits</label>
+              <select id="edit-custom-stopbits">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="edit-custom-poll">Comando Poll (vacio = transmision continua)</label>
+            <input type="text" id="edit-custom-poll" placeholder="W\r\n">
+          </div>
+        </div>
+
+        <div id="edit-alert" class="alert" style="margin-top:8px;"></div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-outline btn-sm" id="btn-edit-test">Probar lectura</button>
+          <button class="btn btn-primary btn-sm" id="btn-edit-save">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm reconfigure -->
+  <div class="modal-overlay" id="modal-reconfig" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>Reconfigurar estacion</h3>
+        <button class="modal-close" id="modal-reconfig-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--text);margin-bottom:16px;">Esto borrara la estacion registrada y todas las basculas configuradas. Tendras que volver a registrar la estacion y agregar las basculas.</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Los datos del servidor (URL y codigo) se conservan.</p>
+        <div id="alert-reconfig" class="alert"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm" id="btn-reconfig-cancel">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="btn-reconfig-confirm">Reconfigurar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm remove scale -->
+  <div class="modal-overlay" id="modal-remove-scale" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>Quitar bascula</h3>
+        <button class="modal-close" id="modal-remove-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--text);" id="remove-scale-msg">Quitar esta bascula?</p>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm" id="btn-remove-cancel">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="btn-remove-confirm">Quitar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/views/estacion.js"></script>
+  <script src="assets/js/views/lista-basculas.js"></script>
+  <script src="assets/js/views/zona-trabajo.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+
+</html>
