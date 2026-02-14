@@ -134,6 +134,30 @@ function registerHandlers(getMainWindow) {
     return configManager.getAll();
   });
 
+  // Toggle auto-launch on system startup
+  ipcMain.handle('set-auto-launch', async (_event, enabled) => {
+    try {
+      const AutoLaunch = require('auto-launch');
+      const autoLauncher = new AutoLaunch({
+        name: 'Scale Desktop App',
+        isHidden: true,
+      });
+
+      if (enabled) {
+        await autoLauncher.enable();
+      } else {
+        await autoLauncher.disable();
+      }
+
+      configManager.set('autoLaunch', enabled);
+      log('info', `Auto-launch ${enabled ? 'activado' : 'desactivado'}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error configurando auto-launch: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('is-configured', async () => {
     return configManager.isConfigured();
   });

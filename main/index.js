@@ -56,8 +56,10 @@ app.whenReady().then(async () => {
   // Register IPC handlers
   registerHandlers(getMainWindow);
 
-  // Start on login page
-  mainWindow = createWindow('login.html');
+  // Si ya hay credenciales de servidor guardadas, ir directo a la app
+  const savedConfig = configManager.getAll();
+  const hasCredentials = !!(savedConfig.serverUrl && savedConfig.bearerToken);
+  mainWindow = createWindow(hasCredentials ? 'app.html' : 'login.html');
 
   // Create system tray
   createTray(mainWindow, async () => {
@@ -79,12 +81,7 @@ app.whenReady().then(async () => {
         log('info', 'Desconectado del servidor');
       }
 
-      // Resetear working flags localmente (igual que logout)
-      const scales = configManager.getAll().scales || [];
-      if (scales.length > 0) {
-        const resetScales = scales.map(s => ({ ...s, working: false }));
-        configManager.set('scales', resetScales);
-      }
+      // No resetear working flags; se preservan para la próxima sesión.
     } catch (err) {
       log('warn', `Error al desconectar: ${err.message}`);
     }

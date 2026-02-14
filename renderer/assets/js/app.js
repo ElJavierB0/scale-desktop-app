@@ -203,10 +203,14 @@ async function initApp() {
     const regResult = await window.electronAPI.registerStation(appConfig.stationId);
     if (!regResult.success) {
       console.warn('Error re-registrando estacion:', regResult.error);
+      // Mostrar aviso pero no bloquear - el servicio intentará conectar después
     }
 
     // Sincronizar zonas de trabajo con el servidor (activar/desactivar según working local)
-    await window.electronAPI.syncZones();
+    const syncResult = await window.electronAPI.syncZones();
+    if (!syncResult.success) {
+      console.warn('Error sincronizando zonas:', syncResult.error);
+    }
 
     // Reload config and re-render views
     appConfig = await window.electronAPI.getConfig();

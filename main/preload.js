@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   syncZones: () => ipcRenderer.invoke('sync-zones'),
   disconnect: () => ipcRenderer.invoke('disconnect'),
   reconfigure: () => ipcRenderer.invoke('reconfigure'),
+  setAutoLaunch: (enabled) => ipcRenderer.invoke('set-auto-launch', enabled),
 
   // Events from main
   onScaleUpdate: (callback) => {

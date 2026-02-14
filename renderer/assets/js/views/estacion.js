@@ -56,6 +56,12 @@ function showEstacionDisplay(config) {
 
   document.querySelector('#est-status').innerHTML =
     '<span class="badge badge-success">Conectada</span>';
+
+  // Auto-launch toggle
+  const toggle = document.querySelector('#toggle-autolaunch');
+  if (toggle) {
+    toggle.checked = config.autoLaunch === true;
+  }
 }
 
 // Reconfigure button -> opens custom modal
@@ -104,6 +110,17 @@ document.querySelector('#btn-reconfig-confirm').addEventListener('click', async 
   } else {
     alertEl.className = 'alert alert-danger show';
     alertEl.textContent = 'Error: ' + result.error;
+  }
+});
+
+// Auto-launch toggle
+document.querySelector('#toggle-autolaunch').addEventListener('change', async (e) => {
+  const enabled = e.target.checked;
+  const result = await window.electronAPI.setAutoLaunch(enabled);
+  if (!result.success) {
+    // Revert toggle on failure
+    e.target.checked = !enabled;
+    showEstacionAlert('danger', 'Error: ' + result.error);
   }
 });
 
