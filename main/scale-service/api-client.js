@@ -90,6 +90,27 @@ class ApiClient {
     }
   }
 
+  async setZone(scaleId, active) {
+    try {
+      const response = await fetch(this.url('/zone'), {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({ scale_id: scaleId, active }),
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        return { success: false, error: `Servidor respondio ${response.status}: ${body}` };
+      }
+
+      const data = await response.json();
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   async disconnect() {
     try {
       const response = await fetch(this.url('/disconnect'), {

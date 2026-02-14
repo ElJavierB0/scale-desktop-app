@@ -64,6 +64,13 @@ function renderScalesList() {
     toggle.addEventListener('change', async () => {
       const scaleId = toggle.dataset.scaleId;
       const working = toggle.checked;
+
+      // Notificar al servidor el cambio de zona (active/inactive)
+      const zoneResult = await window.electronAPI.setZone(scaleId, working);
+      if (!zoneResult.success) {
+        console.warn('Error actualizando zona en servidor:', zoneResult.error);
+      }
+
       const result = await window.electronAPI.editScale(scaleId, { working });
       if (result.success) {
         const config = await window.electronAPI.getConfig();

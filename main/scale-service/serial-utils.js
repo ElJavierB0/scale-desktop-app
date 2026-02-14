@@ -113,15 +113,39 @@ function testScaleReading(portPath, config) {
 }
 
 /**
+ * Filter ports to only likely USB serial devices (skip Bluetooth, debug, etc.)
+ */
+function filterUsbPorts(ports) {
+  return ports.filter(p => {
+    const path = p.path.toLowerCase();
+    // Skip Bluetooth and debug ports
+    if (path.includes('bluetooth') || path.includes('bt-')) return false;
+    if (path.includes('debug')) return false;
+    // On Mac: only /dev/tty.usb* and /dev/tty.wch* (skip /dev/cu.* duplicates)
+    if (process.platform === 'darwin') {
+      return path.startsWith('/dev/tty.usb') || path.startsWith('/dev/tty.wch');
+    }
+    // On Windows: all COM ports
+    if (process.platform === 'win32') return true;
+    // On Linux: /dev/ttyUSB* and /dev/ttyACM*
+    return path.includes('/dev/ttyusb') || path.includes('/dev/ttyacm');
+  });
+}
+
+/**
  * Auto-detect scales on all available USB serial ports.
- * Tries each profile on each port. Returns array of detected scales.
+ * Tests all ports in PARALLEL, tries each profile sequentially per port.
+ * Timeout reduced to 1.5s for faster detection.
  */
 async function autoDetect() {
-  const ports = await listPorts();
+  const allPorts = await listPorts();
+  const usbPorts = filterUsbPorts(allPorts);
   const profiles = getAllProfiles().filter(p => p.id !== 'custom');
-  const detected = [];
 
-  for (const portInfo of ports) {
+  log('info', `Auto-detect: ${allPorts.length} puertos totales, ${usbPorts.length} USB filtrados`);
+
+  // Test all ports in parallel - each port tries profiles sequentially
+  const results = await Promise.all(usbPorts.map(async (portInfo) => {
     for (const profile of profiles) {
       log('info', `Probando ${portInfo.path} con perfil ${profile.id}...`);
 
@@ -132,24 +156,24 @@ async function autoDetect() {
         stopBits: profile.stopBits,
         pollCommand: profile.pollCommand,
         delimiter: profile.delimiter,
-        timeout: 3000,
+        timeout: 1500,
       });
 
       if (result.success) {
         log('info', `Detectada bascula en ${portInfo.path}: perfil=${profile.id}, peso=${result.weight}`);
-        detected.push({
+        return {
           port: portInfo.path,
           portInfo,
           profile,
           weight: result.weight,
           raw: result.raw,
-        });
-        break; // Found a matching profile for this port, move to next port
+        };
       }
     }
-  }
+    return null;
+  }));
 
-  return detected;
+  return results.filter(Boolean);
 }
 
 module.exports = { listPorts, parseWeight, testScaleReading, autoDetect };

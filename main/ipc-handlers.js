@@ -28,6 +28,8 @@ function registerHandlers(getMainWindow) {
     if (result.success) {
       configManager.set('stationId', result.data.stationId);
       configManager.set('stationKey', result.data.stationKey);
+      // No resetear working flags; el servidor ya reactivó todas las básculas.
+      // La app sincronizará zona (active/inactive) después de iniciar el servicio.
     }
 
     return result;
@@ -115,9 +117,7 @@ function registerHandlers(getMainWindow) {
   // Status page
   ipcMain.handle('get-service-status', async () => {
     if (!scaleManager) {
-      // Station is still active even with no scales, unless explicitly stopped
-      const config = configManager.getAll();
-      return { running: config.configured === true, scales: [] };
+      return { running: false, scales: [] };
     }
     return scaleManager.getStatus();
   });
@@ -207,6 +207,49 @@ function registerHandlers(getMainWindow) {
     }
   });
 
+  // Sync all scale zones to server based on local working flags
+  ipcMain.handle('sync-zones', async () => {
+    try {
+      const config = configManager.getAll();
+      if (!config.serverUrl || !config.bearerToken || !config.stationKey) {
+        return { success: false, error: 'No configurado' };
+      }
+      const client = new ApiClient(config);
+      const scales = config.scales || [];
+      const results = [];
+
+      for (const s of scales) {
+        const active = s.working !== false;
+        const result = await client.setZone(s.scaleId, active);
+        results.push({ scaleId: s.scaleId, active, success: result.success });
+        if (!result.success) {
+          log('warn', `Error sincronizando zona ${s.scaleId}: ${result.error}`);
+        }
+      }
+
+      log('info', `Zonas sincronizadas: ${results.filter(r => r.success).length}/${results.length}`);
+      return { success: true, results };
+    } catch (err) {
+      log('error', `Error sincronizando zonas: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  // Set scale zone status (active/inactive on server)
+  ipcMain.handle('set-zone', async (_event, scaleId, active) => {
+    try {
+      const config = configManager.getAll();
+      if (!config.serverUrl || !config.bearerToken || !config.stationKey) {
+        return { success: false, error: 'No configurado' };
+      }
+      const client = new ApiClient(config);
+      return await client.setZone(scaleId, active);
+    } catch (err) {
+      log('error', `Error actualizando zona de bascula: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
   // Disconnect from server (marks station inactive)
   ipcMain.handle('disconnect', async () => {
     try {
@@ -221,6 +264,9 @@ function registerHandlers(getMainWindow) {
         scaleManager.stop();
         scaleManager = null;
       }
+
+      // No resetear working flags localmente; al reconectar se sincronizan con el servidor.
+      // Así el usuario mantiene su configuración de zona de trabajo entre sesiones.
 
       return { success: true };
     } catch (err) {

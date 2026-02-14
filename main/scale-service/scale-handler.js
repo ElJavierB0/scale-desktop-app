@@ -95,7 +95,6 @@ class ScaleHandler {
     const heartbeatDue = (now - this.lastSentTime) >= (this.appConfig.heartbeatMs || 2000);
 
     if (!changed && !heartbeatDue) return;
-    if (!stable && !heartbeatDue) return;
 
     const payload = {
       station_id: this.appConfig.stationId,

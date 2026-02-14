@@ -79,9 +79,10 @@ class ScaleManager {
 
     cleanOldLogs();
 
-    // Start with local config (from wizard)
-    if (this.config.scales && this.config.scales.length > 0) {
-      this.startHandlers(this.config.scales);
+    // Start with local config (only scales in work zone)
+    const workingScales = (this.config.scales || []).filter(s => s.working !== false);
+    if (workingScales.length > 0) {
+      this.startHandlers(workingScales);
     }
 
     // Also try API config and set up polling

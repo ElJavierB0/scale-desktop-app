@@ -118,27 +118,31 @@ document.querySelector('#btn-register-station').addEventListener('click', async 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Registrando...';
 
-  const result = await window.electronAPI.registerStation(name);
+  try {
+    const result = await window.electronAPI.registerStation(name);
 
-  btn.disabled = false;
-  btn.textContent = origText;
+    btn.disabled = false;
+    btn.textContent = origText;
 
-  if (result.success) {
-    const msg = result.data.message
-      ? `Estacion recuperada: ${result.data.stationId}`
-      : `Estacion registrada: ${result.data.stationId}`;
-    showEstacionAlert('success', msg);
+    if (result.success) {
+      const msg = result.data.message
+        ? `Estacion recuperada: ${result.data.stationId}`
+        : `Estacion registrada: ${result.data.stationId}`;
+      showEstacionAlert('success', msg);
 
-    // Update display after a brief moment
-    setTimeout(async () => {
+      // Update display and navigate immediately
       const config = await window.electronAPI.getConfig();
       showEstacionDisplay(config);
       // Notify app.js to unlock next step
       if (typeof onStationRegistered === 'function') {
         onStationRegistered();
       }
-    }, 800);
-  } else {
-    showEstacionAlert('danger', `Error: ${result.error}`);
+    } else {
+      showEstacionAlert('danger', `Error: ${result.error}`);
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = origText;
+    showEstacionAlert('danger', `Error inesperado: ${err.message}`);
   }
 });

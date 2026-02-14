@@ -137,15 +137,13 @@ function onReconfigured() {
 
 function onScalesChanged(count) {
   // Refresh config, unlock, and re-init zona de trabajo
+  // NOTA: No llamar startService() aquí porque editScale/addScale/removeScale
+  // en ipc-handlers.js ya reinician el ScaleManager. Doble reinicio causa
+  // race condition con el puerto serial.
   window.electronAPI.getConfig().then(config => {
     appConfig = config;
     updateLocks(config);
-    // Re-init zona de trabajo with updated working scales
     initZonaTrabajo(config);
-    // Restart service to pick up changes
-    if (isStationRegistered(config) && hasScales(config)) {
-      window.electronAPI.startService();
-    }
     refreshServiceBadge();
   });
 }
@@ -154,11 +152,16 @@ function onScalesChanged(count) {
 
 async function refreshServiceBadge() {
   try {
+    const config = await window.electronAPI.getConfig();
+    const stationDone = isStationRegistered(config);
     const status = await window.electronAPI.getServiceStatus();
     const badge = $('#service-badge');
     const text = $('#badge-text');
 
-    if (status.running) {
+    if (!stationDone) {
+      badge.className = 'status-badge stopped';
+      text.textContent = 'Inactivo';
+    } else if (status.running) {
       badge.className = 'status-badge running';
       text.textContent = 'Activo';
     } else {
@@ -194,8 +197,23 @@ async function initApp() {
     switchView('lista-basculas');
   }
 
-  // Start service if configured
+  // Reactivate station and start service if configured
   if (stationDone && scalesDone) {
+    // Re-register to reactivate station (and its scales) after disconnect/logout
+    const regResult = await window.electronAPI.registerStation(appConfig.stationId);
+    if (!regResult.success) {
+      console.warn('Error re-registrando estacion:', regResult.error);
+    }
+
+    // Sincronizar zonas de trabajo con el servidor (activar/desactivar según working local)
+    await window.electronAPI.syncZones();
+
+    // Reload config and re-render views
+    appConfig = await window.electronAPI.getConfig();
+    initListaBasculas(appConfig);
+    initZonaTrabajo(appConfig);
+    updateLocks(appConfig);
+
     await window.electronAPI.startService();
   }
 

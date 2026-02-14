@@ -78,6 +78,13 @@ app.whenReady().then(async () => {
         await client.disconnect();
         log('info', 'Desconectado del servidor');
       }
+
+      // Resetear working flags localmente (igual que logout)
+      const scales = configManager.getAll().scales || [];
+      if (scales.length > 0) {
+        const resetScales = scales.map(s => ({ ...s, working: false }));
+        configManager.set('scales', resetScales);
+      }
     } catch (err) {
       log('warn', `Error al desconectar: ${err.message}`);
     }

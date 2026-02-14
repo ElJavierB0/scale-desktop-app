@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addScale: (scaleConfig) => ipcRenderer.invoke('add-scale', scaleConfig),
   removeScale: (scaleId) => ipcRenderer.invoke('remove-scale', scaleId),
   editScale: (scaleId, newConfig) => ipcRenderer.invoke('edit-scale', scaleId, newConfig),
+  setZone: (scaleId, active) => ipcRenderer.invoke('set-zone', scaleId, active),
+  syncZones: () => ipcRenderer.invoke('sync-zones'),
   disconnect: () => ipcRenderer.invoke('disconnect'),
   reconfigure: () => ipcRenderer.invoke('reconfigure'),
 

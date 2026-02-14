@@ -21,6 +21,7 @@ const schema = {
         pollCommand: { type: ['string', 'null'] },
         delimiter: { type: 'string' },
         readIntervalMs: { type: 'number' },
+        working: { type: 'boolean', default: true },
       },
     },
   },
@@ -31,7 +32,7 @@ const schema = {
   stabilityThresholdKg: { type: 'number', default: 0.05 },
   stabilityRequiredMs: { type: 'number', default: 500 },
   // API sync config
-  apiSyncIntervalMs: { type: 'number', default: 500 },
+  apiSyncIntervalMs: { type: 'number', default: 200 },
   heartbeatMs: { type: 'number', default: 2000 },
   reconnectIntervalMs: { type: 'number', default: 5000 },
 };
