@@ -26,6 +26,7 @@ const schema = {
     },
   },
   autoLaunch: { type: 'boolean', default: false },
+  rememberSession: { type: 'boolean', default: false },
   configured: { type: 'boolean', default: false },
   // Stability config
   stabilityWindowSize: { type: 'number', default: 5 },
@@ -66,6 +67,7 @@ function getAll() {
     stationKey: s.get('stationKey'),
     scales: s.get('scales'),
     autoLaunch: s.get('autoLaunch'),
+    rememberSession: s.get('rememberSession'),
     configured: s.get('configured'),
     stabilityWindowSize: s.get('stabilityWindowSize'),
     stabilityThresholdKg: s.get('stabilityThresholdKg'),

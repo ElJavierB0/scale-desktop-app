@@ -54,7 +54,15 @@ class ScaleManager {
       return false;
     }
 
-    const newHash = this.configHash(apiConfig.scales);
+    // Filtrar por flag local 'working': la config local es la fuente de verdad
+    // sobre qué básculas deben estar activas en esta estación.
+    const localScales = this.config.scales || [];
+    const localWorkingIds = new Set(
+      localScales.filter(s => s.working !== false).map(s => s.scaleId)
+    );
+    const filteredScales = apiConfig.scales.filter(s => localWorkingIds.has(s.scaleId));
+
+    const newHash = this.configHash(filteredScales);
     if (newHash === this.lastConfigHash) {
       log('debug', 'Configuracion sin cambios');
       return true;
@@ -65,7 +73,9 @@ class ScaleManager {
     this.config.stationId = apiConfig.stationId;
 
     this.stopAllHandlers();
-    this.startHandlers(apiConfig.scales);
+    if (filteredScales.length > 0) {
+      this.startHandlers(filteredScales);
+    }
     return true;
   }
 

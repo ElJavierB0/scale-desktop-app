@@ -68,7 +68,10 @@ function renderScalesList() {
       // Notificar al servidor el cambio de zona (active/inactive)
       const zoneResult = await window.electronAPI.setZone(scaleId, working);
       if (!zoneResult.success) {
-        console.warn('Error actualizando zona en servidor:', zoneResult.error);
+        // Revertir toggle si falla la sincronización con el servidor
+        toggle.checked = !working;
+        console.error('Error actualizando zona en servidor:', zoneResult.error);
+        return;
       }
 
       const result = await window.electronAPI.editScale(scaleId, { working });
@@ -77,6 +80,10 @@ function renderScalesList() {
         allScales = config.scales || [];
         renderScalesList();
         if (typeof onScalesChanged === 'function') onScalesChanged(allScales.length);
+      } else {
+        // Revertir si falla el guardado local
+        toggle.checked = !working;
+        await window.electronAPI.setZone(scaleId, !working);
       }
     });
   });

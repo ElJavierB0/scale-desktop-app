@@ -104,6 +104,8 @@ $$('.sidebar-item').forEach(item => {
 $('#btn-logout').addEventListener('click', async () => {
   closeSidebar();
   try {
+    // Desactivar recordar sesión al cerrar sesión manualmente
+    await window.electronAPI.saveConfig({ rememberSession: false });
     await window.electronAPI.disconnect();
   } catch (_) {
     // Ignore disconnect errors

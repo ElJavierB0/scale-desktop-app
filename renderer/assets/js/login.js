@@ -28,6 +28,7 @@ async function initLogin() {
   const config = await window.electronAPI.getConfig();
   if (config.serverUrl) $('#serverUrl').value = config.serverUrl;
   if (config.bearerToken) $('#bearerToken').value = config.bearerToken;
+  $('#rememberSession').checked = !!config.rememberSession;
 }
 
 initLogin();
@@ -47,8 +48,9 @@ $('#btn-connect').addEventListener('click', async () => {
   const result = await window.electronAPI.verifyServer(url, token);
 
   if (result.success) {
-    // Save server credentials
-    await window.electronAPI.saveConfig({ serverUrl: url, bearerToken: token });
+    // Save server credentials and remember preference
+    const remember = $('#rememberSession').checked;
+    await window.electronAPI.saveConfig({ serverUrl: url, bearerToken: token, rememberSession: remember });
     // Navigate to main app
     window.electronAPI.navigateToApp();
   } else {

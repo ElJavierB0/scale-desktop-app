@@ -56,10 +56,11 @@ app.whenReady().then(async () => {
   // Register IPC handlers
   registerHandlers(getMainWindow);
 
-  // Si ya hay credenciales de servidor guardadas, ir directo a la app
+  // Si 'rememberSession' está activo y hay credenciales, ir directo a la app.
+  // Si no, mostrar login (las credenciales se pre-rellenan para conveniencia).
   const savedConfig = configManager.getAll();
-  const hasCredentials = !!(savedConfig.serverUrl && savedConfig.bearerToken);
-  mainWindow = createWindow(hasCredentials ? 'app.html' : 'login.html');
+  const autoLogin = savedConfig.rememberSession && savedConfig.serverUrl && savedConfig.bearerToken;
+  mainWindow = createWindow(autoLogin ? 'app.html' : 'login.html');
 
   // Create system tray
   createTray(mainWindow, async () => {
@@ -81,7 +82,7 @@ app.whenReady().then(async () => {
         log('info', 'Desconectado del servidor');
       }
 
-      // No resetear working flags; se preservan para la próxima sesión.
+      // No resetear credenciales ni working flags; se preservan para la próxima sesión.
     } catch (err) {
       log('warn', `Error al desconectar: ${err.message}`);
     }

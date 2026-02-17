@@ -81,6 +81,7 @@ function registerHandlers(getMainWindow) {
       if (newConfig.stationKey) configManager.set('stationKey', newConfig.stationKey);
       if (newConfig.scales) configManager.set('scales', newConfig.scales);
       if (newConfig.autoLaunch !== undefined) configManager.set('autoLaunch', newConfig.autoLaunch);
+      if (newConfig.rememberSession !== undefined) configManager.set('rememberSession', newConfig.rememberSession);
       configManager.set('configured', true);
       return { success: true };
     } catch (err) {
@@ -274,7 +275,7 @@ function registerHandlers(getMainWindow) {
     }
   });
 
-  // Disconnect from server (marks station inactive)
+  // Disconnect from server (marks station inactive) and clear session credentials
   ipcMain.handle('disconnect', async () => {
     try {
       const config = configManager.getAll();
