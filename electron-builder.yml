@@ -7,8 +7,11 @@ files:
   - main/**/*
   - renderer/**/*
   - package.json
+  - "!node_modules/@serialport/bindings-cpp/build"
 
+npmRebuild: false
 asarUnpack:
+  - "**/*.node"
   - node_modules/@serialport/bindings-cpp/prebuilds/**/*
 
 # Single PNG icon — electron-builder auto-converts to .icns (Mac) and .ico (Win)
