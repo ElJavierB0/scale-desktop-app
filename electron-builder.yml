@@ -32,9 +32,8 @@ mac:
 win:
   target:
     - target: nsis
-      arch: x64
-    - target: nsis
-      arch: arm64
+      arch:
+        - x64
 
 linux:
   target:
