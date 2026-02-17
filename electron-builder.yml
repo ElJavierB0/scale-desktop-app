@@ -14,6 +14,9 @@ asarUnpack:
 # Single PNG icon — electron-builder auto-converts to .icns (Mac) and .ico (Win)
 icon: build/icon.png
 
+# Ad-hoc sign macOS builds (avoids "damaged" error, shows "unidentified developer" instead)
+afterPack: build/afterPack.js
+
 mac:
   category: public.app-category.utilities
   target:
@@ -29,9 +32,9 @@ mac:
 win:
   target:
     - target: nsis
-      arch:
-        - x64
-        - arm64
+      arch: x64
+    - target: nsis
+      arch: arm64
 
 linux:
   target:
