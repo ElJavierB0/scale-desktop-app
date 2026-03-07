@@ -124,6 +124,33 @@ class ApiClient {
     }
   }
 
+  async fetchPrintJobs() {
+    try {
+      const response = await fetch(this.url('/print-jobs'), {
+        method: 'GET',
+        headers: this.headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (err) {
+      return [];
+    }
+  }
+
+  async completePrintJob(id) {
+    try {
+      const response = await fetch(this.url(`/print-jobs/${id}/complete`), {
+        method: 'POST',
+        headers: this.headers,
+        signal: AbortSignal.timeout(5000),
+      });
+      return { success: response.ok };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   async fetchConfig() {
     try {
       const response = await fetch(this.url('/config'), {

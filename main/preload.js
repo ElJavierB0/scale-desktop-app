@@ -45,6 +45,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners(channel);
   },
 
+  // Printer management
+  scanUsbPrinters: () => ipcRenderer.invoke('scan-usb-printers'),
+  addPrinter: (config) => ipcRenderer.invoke('add-printer', config),
+  removePrinter: (printerId) => ipcRenderer.invoke('remove-printer', printerId),
+  editPrinter: (printerId, newConfig) => ipcRenderer.invoke('edit-printer', printerId, newConfig),
+
   // Navigation
   navigateToApp: () => ipcRenderer.send('navigate-to-app'),
   navigateToLogin: () => ipcRenderer.send('navigate-to-login'),

@@ -1,5 +1,6 @@
 const { ScaleHandler } = require('./scale-handler');
 const { ApiClient } = require('./api-client');
+const { PrinterService } = require('./printer-service');
 const { log, cleanOldLogs } = require('./logger');
 
 class ScaleManager {
@@ -7,6 +8,7 @@ class ScaleManager {
     this.config = config;
     this.handlers = [];
     this.apiClient = new ApiClient(config);
+    this.printerService = null;
     this.configPollTimer = null;
     this.lastConfigHash = null;
     this.running = false;
@@ -95,6 +97,10 @@ class ScaleManager {
       this.startHandlers(workingScales);
     }
 
+    // Iniciar servicio de tiqueteras
+    this.printerService = new PrinterService(this.apiClient, this.config);
+    this.printerService.start();
+
     // Also try API config and set up polling
     const success = await this.applyApiConfig();
     if (!success && this.handlers.length === 0) {
@@ -116,6 +122,10 @@ class ScaleManager {
     if (this.configPollTimer) {
       clearInterval(this.configPollTimer);
       this.configPollTimer = null;
+    }
+    if (this.printerService) {
+      this.printerService.stop();
+      this.printerService = null;
     }
     this.stopAllHandlers();
     this.lastConfigHash = null;

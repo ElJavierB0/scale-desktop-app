@@ -300,6 +300,126 @@ function registerHandlers(getMainWindow) {
     }
   });
 
+  // ========== PRINTER MANAGEMENT ==========
+
+  ipcMain.handle('scan-usb-printers', async () => {
+    try {
+      const { getDeviceList } = require('usb');
+      const { promisify } = require('util');
+      const PRINTER_CLASS = 0x07;
+
+      const devices = getDeviceList().filter((d) => {
+        try {
+          return d.configDescriptor.interfaces.some((iface) =>
+            iface.some((conf) => conf.bInterfaceClass === PRINTER_CLASS)
+          );
+        } catch (_) { return false; }
+      });
+
+      const results = [];
+      for (const d of devices) {
+        const vid = d.deviceDescriptor.idVendor;
+        const pid = d.deviceDescriptor.idProduct;
+        let displayName = null;
+
+        try {
+          d.open();
+          const getStr = promisify(d.getStringDescriptor.bind(d));
+          const parts = [];
+          if (d.deviceDescriptor.iManufacturer) {
+            const m = await getStr(d.deviceDescriptor.iManufacturer);
+            if (m) parts.push(m.toString().trim());
+          }
+          if (d.deviceDescriptor.iProduct) {
+            const p = await getStr(d.deviceDescriptor.iProduct);
+            if (p) parts.push(p.toString().trim());
+          }
+          d.close();
+          if (parts.length) displayName = parts.join(' ');
+        } catch (_) {}
+
+        if (!displayName) {
+          displayName = `VID:0x${vid.toString(16).padStart(4, '0')} PID:0x${pid.toString(16).padStart(4, '0')}`;
+        }
+
+        results.push({ vendorId: vid, productId: pid, displayName });
+      }
+
+      return results;
+    } catch (err) {
+      log('warn', `Error escaneando impresoras USB: ${err.message}`);
+      return [];
+    }
+  });
+
+  ipcMain.handle('add-printer', async (_event, printerConfig) => {
+    try {
+      const config = configManager.getAll();
+      const printers = config.printers || [];
+
+      if (printers.find((p) => p.printerId === printerConfig.printerId)) {
+        return { success: false, error: 'Ya existe una tiquetera con ese ID' };
+      }
+
+      printers.push(printerConfig);
+      configManager.set('printers', printers);
+
+      // Notificar al PrinterService si está activo
+      if (scaleManager && scaleManager.printerService) {
+        scaleManager.printerService.updateConfig(configManager.getAll());
+      }
+
+      log('info', `Tiquetera agregada: ${printerConfig.printerId} VID:${printerConfig.vendorId} PID:${printerConfig.productId}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error agregando tiquetera: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('remove-printer', async (_event, printerId) => {
+    try {
+      const config = configManager.getAll();
+      const printers = (config.printers || []).filter((p) => p.printerId !== printerId);
+      configManager.set('printers', printers);
+
+      if (scaleManager && scaleManager.printerService) {
+        scaleManager.printerService.updateConfig(configManager.getAll());
+      }
+
+      log('info', `Tiquetera eliminada: ${printerId}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error eliminando tiquetera: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('edit-printer', async (_event, printerId, newConfig) => {
+    try {
+      const config = configManager.getAll();
+      const printers = config.printers || [];
+      const index = printers.findIndex((p) => p.printerId === printerId);
+
+      if (index === -1) {
+        return { success: false, error: 'Tiquetera no encontrada' };
+      }
+
+      printers[index] = { ...printers[index], ...newConfig };
+      configManager.set('printers', printers);
+
+      if (scaleManager && scaleManager.printerService) {
+        scaleManager.printerService.updateConfig(configManager.getAll());
+      }
+
+      log('info', `Tiquetera editada: ${printerId}`);
+      return { success: true };
+    } catch (err) {
+      log('error', `Error editando tiquetera: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  });
+
   // Scale management: add a scale and restart service
   ipcMain.handle('add-scale', async (_event, scaleConfig) => {
     try {

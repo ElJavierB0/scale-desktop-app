@@ -30,6 +30,11 @@
         <span>Lista de Basculas</span>
         <span class="lock-icon" id="lock-lista">&#128274;</span>
       </li>
+      <li class="sidebar-item locked" data-view="lista-tiqueteras" id="menu-lista-tiqueteras">
+        <span class="sidebar-icon">&#128438;</span>
+        <span>Lista de Tiqueteras</span>
+        <span class="lock-icon" id="lock-tiqueteras">&#128274;</span>
+      </li>
       <li class="sidebar-item locked" data-view="zona-trabajo" id="menu-zona-trabajo">
         <span class="sidebar-icon">&#9881;</span>
         <span>Zona de Trabajo</span>
@@ -140,6 +145,23 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- View: Lista de Tiqueteras -->
+    <section class="view" id="view-lista-tiqueteras" style="display:none;position:relative;min-height:calc(100vh - 120px);">
+      <div class="info-card">
+        <h3>Tiqueteras de esta estacion</h3>
+        <div id="printers-list"></div>
+      </div>
+      <!-- FAB button bottom-right -->
+      <div class="fab-container">
+        <button class="fab-btn" id="btn-add-printer-mode" title="Agregar tiquetera">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
         </button>
       </div>
@@ -388,8 +410,128 @@
     </div>
   </div>
 
+  <!-- Modal: Agregar tiquetera -->
+  <div class="modal-overlay" id="modal-add-printer" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3>Agregar tiquetera</h3>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Configura una impresora termica para esta estacion.</p>
+        </div>
+        <button class="modal-close" id="modal-add-printer-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="add-printer-id">ID de tiquetera</label>
+          <input type="text" id="add-printer-id" placeholder="TIQUETERA_01">
+        </div>
+        <div class="form-group">
+          <label>Impresora USB</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <button class="btn btn-outline btn-sm" id="btn-scan-usb-add">Buscar impresoras USB</button>
+          </div>
+          <div id="add-scan-status" style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Presiona "Buscar" para detectar impresoras USB</div>
+          <div id="add-usb-list"></div>
+        </div>
+        <div class="form-group">
+          <label for="add-printer-scale">Bascula asociada</label>
+          <select id="add-printer-scale"></select>
+        </div>
+        <div class="form-group">
+          <label for="add-printer-protocol">Protocolo de impresion</label>
+          <select id="add-printer-protocol">
+            <option value="tspl">TSPL — Impresoras de etiquetas (Xprinter, TSC, Zebra)</option>
+            <option value="escpos">ESC/POS — Impresoras de tickets/recibos (Epson, Star)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="add-label-width">Ancho etiqueta (mm)</label>
+            <input type="number" id="add-label-width" value="50" min="20" max="120">
+          </div>
+          <div class="form-group">
+            <label for="add-label-height">Alto etiqueta (mm)</label>
+            <input type="number" id="add-label-height" value="25" min="15" max="300">
+          </div>
+        </div>
+        <div id="add-printer-alert" class="alert" style="margin-top:8px;"></div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-success btn-sm" id="btn-confirm-add-printer">Agregar tiquetera</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar tiquetera -->
+  <div class="modal-overlay" id="modal-edit-printer" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Editar tiquetera</h3>
+        <button class="modal-close" id="modal-edit-printer-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>ID de tiquetera</label>
+          <input type="text" id="edit-printer-id-label" readonly
+            style="background:#f1f5f9;cursor:not-allowed;">
+        </div>
+        <div class="form-group">
+          <label>Impresora USB</label>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+            <button class="btn btn-outline btn-sm" id="btn-scan-usb-edit">Buscar impresoras USB</button>
+          </div>
+          <div id="edit-scan-status" style="font-size:12px;color:var(--text-muted);margin-bottom:4px;"></div>
+          <div id="edit-usb-list"></div>
+        </div>
+        <div class="form-group">
+          <label for="edit-printer-scale">Bascula asociada</label>
+          <select id="edit-printer-scale"></select>
+        </div>
+        <div class="form-group">
+          <label for="edit-printer-protocol">Protocolo de impresion</label>
+          <select id="edit-printer-protocol">
+            <option value="tspl">TSPL — Impresoras de etiquetas (Xprinter, TSC, Zebra)</option>
+            <option value="escpos">ESC/POS — Impresoras de tickets/recibos (Epson, Star)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-label-width">Ancho etiqueta (mm)</label>
+            <input type="number" id="edit-label-width" value="50" min="20" max="120">
+          </div>
+          <div class="form-group">
+            <label for="edit-label-height">Alto etiqueta (mm)</label>
+            <input type="number" id="edit-label-height" value="25" min="15" max="300">
+          </div>
+        </div>
+        <div id="edit-printer-alert" class="alert" style="margin-top:8px;"></div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-primary btn-sm" id="btn-edit-printer-save">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar quitar tiquetera -->
+  <div class="modal-overlay" id="modal-remove-printer" style="display:none;">
+    <div class="modal-content" style="max-width:400px;">
+      <div class="modal-header">
+        <h3>Quitar tiquetera</h3>
+        <button class="modal-close" id="modal-remove-printer-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:var(--text);" id="remove-printer-msg">Quitar esta tiquetera?</p>
+      </div>
+      <div class="modal-footer" style="justify-content:flex-end;">
+        <button class="btn btn-outline btn-sm" id="btn-remove-printer-cancel">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="btn-remove-printer-confirm">Quitar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="assets/js/views/estacion.js"></script>
   <script src="assets/js/views/lista-basculas.js"></script>
+  <script src="assets/js/views/lista-tiqueteras.js"></script>
   <script src="assets/js/views/zona-trabajo.js"></script>
   <script src="assets/js/app.js"></script>
 </body>

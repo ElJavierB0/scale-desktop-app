@@ -19,8 +19,10 @@ function updateLocks(config) {
   const scalesDone = hasScales(config);
 
   const menuLista = $('#menu-lista-basculas');
+  const menuTiqueteras = $('#menu-lista-tiqueteras');
   const menuZona = $('#menu-zona-trabajo');
   const lockLista = $('#lock-lista');
+  const lockTiqueteras = $('#lock-tiqueteras');
   const lockZona = $('#lock-zona');
 
   if (stationDone) {
@@ -32,9 +34,13 @@ function updateLocks(config) {
   }
 
   if (stationDone && scalesDone) {
+    menuTiqueteras.classList.remove('locked');
+    lockTiqueteras.style.display = 'none';
     menuZona.classList.remove('locked');
     lockZona.style.display = 'none';
   } else {
+    menuTiqueteras.classList.add('locked');
+    lockTiqueteras.style.display = '';
     menuZona.classList.add('locked');
     lockZona.style.display = '';
   }
@@ -62,6 +68,7 @@ function switchView(viewName) {
   const titles = {
     'estacion': 'Estacion',
     'lista-basculas': 'Lista de Basculas',
+    'lista-tiqueteras': 'Lista de Tiqueteras',
     'zona-trabajo': 'Zona de Trabajo',
   };
   $('#top-bar-title').textContent = titles[viewName] || viewName;
@@ -69,9 +76,12 @@ function switchView(viewName) {
   currentView = viewName;
   closeSidebar();
 
-  // Refresh zona de trabajo data when switching to it
+  // Refresh on switch
   if (viewName === 'zona-trabajo' && appConfig) {
     initZonaTrabajo(appConfig);
+  }
+  if (viewName === 'lista-tiqueteras' && appConfig) {
+    initListaTiqueteras(appConfig);
   }
 }
 
@@ -131,6 +141,7 @@ function onReconfigured() {
     appConfig = config;
     updateLocks(config);
     initListaBasculas(config);
+    initListaTiqueteras(config);
     initZonaTrabajo(config);
     switchView('estacion');
     refreshServiceBadge();
@@ -145,6 +156,7 @@ function onScalesChanged(count) {
   window.electronAPI.getConfig().then(config => {
     appConfig = config;
     updateLocks(config);
+    initListaTiqueteras(config);
     initZonaTrabajo(config);
     refreshServiceBadge();
   });
@@ -187,6 +199,7 @@ async function initApp() {
   // Initialize views
   initEstacion(appConfig);
   if (stationDone) initListaBasculas(appConfig);
+  if (stationDone && scalesDone) initListaTiqueteras(appConfig);
   if (stationDone && scalesDone) initZonaTrabajo(appConfig);
 
   // Determine starting view

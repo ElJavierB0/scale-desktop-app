@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      color: #000;
+      /* width y font-size se setean dinámicamente por JS según el tamaño de etiqueta */
+    }
+
+    /* ── Layout COMPACTO: etiquetas pequeñas (alto ≤ 40mm) ── */
+    body.compact {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 1.5mm 2mm;
+      gap: 0;
+    }
+    body.compact .c-title   { font-size: 6px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; text-align: center; }
+    body.compact .c-folio   { font-size: 7px; font-weight: bold; text-align: center; }
+    body.compact .c-divider { border-top: 0.5px solid #000; margin: 1.2mm 0; }
+    body.compact .c-product { font-size: 7px; font-weight: bold; text-align: center; white-space: normal; word-break: break-word; line-height: 1.2; }
+    body.compact .c-weight  { font-size: 16px; font-weight: bold; text-align: center; line-height: 1; }
+    body.compact .c-unit    { font-size: 8px; font-weight: bold; }
+    body.compact .c-meta    { font-size: 5.5px; text-align: center; color: #333; margin-top: 1mm; }
+
+    /* ── Layout NORMAL: recibos más grandes (alto > 40mm) ── */
+    body.normal {
+      padding: 3mm 3mm;
+    }
+    body.normal .n-header       { text-align: center; margin-bottom: 2mm; }
+    body.normal .n-header-title { font-size: 10px; font-weight: bold; letter-spacing: 0.5px; }
+    body.normal .n-header-sub   { font-size: 8px; margin-top: 0.5mm; }
+    body.normal .n-divider      { border: none; border-top: 1px dashed #000; margin: 1.5mm 0; }
+    body.normal .n-row          { display: flex; justify-content: space-between; margin: 1mm 0; font-size: 8px; gap: 3px; }
+    body.normal .n-label        { white-space: nowrap; flex-shrink: 0; }
+    body.normal .n-value        { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    body.normal .n-product      { font-size: 9px; font-weight: bold; text-align: center; margin: 1.5mm 0 1mm; white-space: normal; word-break: break-word; }
+    body.normal .n-weight-block { text-align: center; margin: 1.5mm 0; }
+    body.normal .n-weight-big   { font-weight: bold; letter-spacing: 1px; line-height: 1; }
+    body.normal .n-weight-unit  { font-weight: bold; }
+    body.normal .n-footer       { text-align: center; font-size: 7px; margin-top: 2mm; }
+  </style>
+</head>
+<body>
+  <!-- Contenido inyectado por JS según el modo -->
+  <script>
+    const p   = new URLSearchParams(window.location.search);
+    const wMm = parseFloat(p.get('w') || '80');
+    const hMm = parseFloat(p.get('h') || '130');
+
+    const orderId     = '#PDR-' + (p.get('orderId') || '');
+    const clientName  = p.get('clientName') || '';
+    const productName = p.get('productName') || '';
+    const weight      = p.get('weight') || '0.000';
+    const date        = p.get('date') || '';
+    const time        = p.get('time') || '';
+
+    const body = document.body;
+    // Ancho del body = ancho de la etiqueta menos márgenes internos (manejado por padding)
+    body.style.width  = wMm + 'mm';
+    body.style.height = hMm + 'mm';
+
+    const isCompact = hMm <= 40;
+
+    if (isCompact) {
+      body.className = 'compact';
+      body.innerHTML = `
+        <div class="c-title">Super Pescadería Del Río</div>
+        <div class="c-folio">${orderId} &nbsp;·&nbsp; ${clientName}</div>
+        <div class="c-divider"></div>
+        <div class="c-product">${productName}</div>
+        <div style="text-align:center;line-height:1;margin:1mm 0;">
+          <span class="c-weight">${weight}</span><span class="c-unit"> kg</span>
+        </div>
+        <div class="c-meta">${date} ${time}</div>
+      `;
+    } else {
+      // Tamaño de fuente base escalado al ancho (min 7px, max 11px)
+      const baseFontPx = Math.min(11, Math.max(7, Math.round(wMm * 0.13)));
+      // Peso grande escalado
+      const weightPx   = Math.min(32, Math.max(16, Math.round(wMm * 0.38)));
+      const weightUnitPx = Math.round(weightPx * 0.5);
+
+      body.className = 'normal';
+      body.style.fontSize = baseFontPx + 'px';
+      body.innerHTML = `
+        <div class="n-header">
+          <div class="n-header-title">SUPER PESCADERÍA DEL RÍO</div>
+          <div class="n-header-sub">Ticket de pesaje</div>
+        </div>
+        <hr class="n-divider">
+        <div class="n-row">
+          <span class="n-label">Pedido:</span>
+          <span class="n-value">${orderId}</span>
+        </div>
+        <div class="n-row">
+          <span class="n-label">Cliente:</span>
+          <span class="n-value">${clientName}</span>
+        </div>
+        <hr class="n-divider">
+        <div class="n-product">${productName}</div>
+        <div class="n-weight-block">
+          <span class="n-weight-big" style="font-size:${weightPx}px;">${weight}</span>
+          <span class="n-weight-unit" style="font-size:${weightUnitPx}px;"> kg</span>
+        </div>
+        <hr class="n-divider">
+        <div class="n-row">
+          <span class="n-label">Fecha:</span>
+          <span class="n-value">${date}</span>
+        </div>
+        <div class="n-row">
+          <span class="n-label">Hora:</span>
+          <span class="n-value">${time}</span>
+        </div>
+        <div class="n-footer">— SuperPescaderiaDelRio —</div>
+      `;
+    }
+  </script>
+</body>
+</html>
