@@ -181,7 +181,7 @@ function buildTicketTSPL(job, printer, serverUrl) {
   const orderId = String(job.order_id);          // sin padding de ceros
   const weight  = parseFloat(job.weight).toFixed(2);
   const unit    = (job.unit || 'KGM').toLowerCase();
-  const qrData  = serverUrl ? `${serverUrl}/orders/${job.order_id}` : `Pedido #${orderId}`;
+  const qrData  = serverUrl ? `${serverUrl}/delivery-detail/${job.order_id}` : `Pedido #${orderId}`;
 
   // Fila 1: negocio del cliente (o nombre si no tiene negocio)
   const rawHeader = (job.client_business || job.client_name || '');
