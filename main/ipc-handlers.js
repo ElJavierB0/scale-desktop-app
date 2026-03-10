@@ -304,6 +304,26 @@ function registerHandlers(getMainWindow) {
 
   ipcMain.handle('scan-usb-printers', async () => {
     try {
+      // ── Windows: listar impresoras instaladas en el OS ──────────────────────
+      if (process.platform === 'win32') {
+        const { exec } = require('child_process');
+        return await new Promise((resolve) => {
+          exec(
+            'powershell -NonInteractive -Command "Get-Printer | Select-Object Name | ConvertTo-Json -Compress"',
+            { timeout: 8000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) return resolve([]);
+              try {
+                const raw  = JSON.parse(stdout.trim());
+                const list = Array.isArray(raw) ? raw : [raw];
+                resolve(list.map((p) => ({ printerName: p.Name, displayName: p.Name })));
+              } catch (_) { resolve([]); }
+            }
+          );
+        });
+      }
+
+      // ── Mac / Linux: escanear dispositivos USB clase impresora ──────────────
       const { getDeviceList } = require('usb');
       const { promisify } = require('util');
       const PRINTER_CLASS = 0x07;
@@ -347,7 +367,7 @@ function registerHandlers(getMainWindow) {
 
       return results;
     } catch (err) {
-      log('warn', `Error escaneando impresoras USB: ${err.message}`);
+      log('warn', `Error escaneando impresoras: ${err.message}`);
       return [];
     }
   });

@@ -8,9 +8,13 @@ let pendingRemovePrinterId = null;
 let addSelectedVendorId    = null;
 let addSelectedProductId   = null;
 let addSelectedDisplayName = null;
+let addSelectedPrinterName = null;
 let editSelectedVendorId    = null;
 let editSelectedProductId   = null;
 let editSelectedDisplayName = null;
+let editSelectedPrinterName = null;
+
+const IS_WINDOWS = window.electronAPI.platform === 'win32';
 
 function showPrinterAlert(selector, type, msg) {
   const el = document.querySelector(selector);
@@ -121,7 +125,9 @@ async function scanAndShowUsbPrinters(listId, statusId, onSelect, currentVendorI
   statusEl.textContent = `${devices.length} impresora(s) USB encontrada(s) — selecciona una`;
 
   devices.forEach((d) => {
-    const isSelected = d.vendorId === currentVendorId && d.productId === currentProductId;
+    const isSelected = IS_WINDOWS
+      ? d.printerName === currentVendorId   // currentVendorId reutilizado como printerName en Windows
+      : d.vendorId === currentVendorId && d.productId === currentProductId;
     const item = document.createElement('div');
     item.style.cssText = `cursor:pointer;padding:8px 10px;margin-bottom:4px;border-radius:6px;border:1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'};font-size:12px;`;
     item.textContent = d.displayName;
@@ -129,11 +135,11 @@ async function scanAndShowUsbPrinters(listId, statusId, onSelect, currentVendorI
     item.addEventListener('click', () => {
       listEl.querySelectorAll('div').forEach((el) => (el.style.borderColor = 'var(--border)'));
       item.style.borderColor = 'var(--primary)';
-      onSelect(d.vendorId, d.productId, d.displayName);
+      onSelect(d.vendorId ?? null, d.productId ?? null, d.displayName, d.printerName ?? null);
     });
 
     listEl.appendChild(item);
-    if (isSelected) onSelect(d.vendorId, d.productId, d.displayName);
+    if (isSelected) onSelect(d.vendorId ?? null, d.productId ?? null, d.displayName, d.printerName ?? null);
   });
 }
 
@@ -147,6 +153,7 @@ document.querySelector('#btn-add-printer-mode').addEventListener('click', () => 
   addSelectedVendorId    = null;
   addSelectedProductId   = null;
   addSelectedDisplayName = null;
+  addSelectedPrinterName = null;
   loadScalesIntoSelect('#add-printer-scale');
   document.querySelector('#modal-add-printer').style.display = 'flex';
 });
@@ -154,7 +161,7 @@ document.querySelector('#btn-add-printer-mode').addEventListener('click', () => 
 document.querySelector('#btn-scan-usb-add').addEventListener('click', () => {
   scanAndShowUsbPrinters(
     '#add-usb-list', '#add-scan-status',
-    (vid, pid, name) => { addSelectedVendorId = vid; addSelectedProductId = pid; addSelectedDisplayName = name; },
+    (vid, pid, name, printerName) => { addSelectedVendorId = vid; addSelectedProductId = pid; addSelectedDisplayName = name; addSelectedPrinterName = printerName; },
     addSelectedVendorId, addSelectedProductId
   );
 });
@@ -172,8 +179,9 @@ document.querySelector('#btn-confirm-add-printer').addEventListener('click', asy
   const printerId = document.querySelector('#add-printer-id').value.trim();
   const scaleId   = document.querySelector('#add-printer-scale').value;
 
-  if (!printerId)              return showPrinterAlert('#add-printer-alert', 'danger', 'Ingresa un ID para la tiquetera');
-  if (addSelectedVendorId == null) return showPrinterAlert('#add-printer-alert', 'danger', 'Selecciona una impresora USB');
+  if (!printerId) return showPrinterAlert('#add-printer-alert', 'danger', 'Ingresa un ID para la tiquetera');
+  if (IS_WINDOWS && !addSelectedPrinterName) return showPrinterAlert('#add-printer-alert', 'danger', 'Selecciona una impresora de la lista');
+  if (!IS_WINDOWS && addSelectedVendorId == null) return showPrinterAlert('#add-printer-alert', 'danger', 'Selecciona una impresora USB');
 
   const btn = document.querySelector('#btn-confirm-add-printer');
   btn.disabled = true;
@@ -188,6 +196,7 @@ document.querySelector('#btn-confirm-add-printer').addEventListener('click', asy
     printerId,
     vendorId:     addSelectedVendorId,
     productId:    addSelectedProductId,
+    printerName:  addSelectedPrinterName || null,
     displayName:  addSelectedDisplayName || '',
     protocol,
     scaleId:      scaleId || null,
@@ -226,12 +235,13 @@ async function openEditPrinterModal(printerId) {
   editSelectedVendorId    = printer.vendorId    ?? null;
   editSelectedProductId   = printer.productId   ?? null;
   editSelectedDisplayName = printer.displayName ?? null;
+  editSelectedPrinterName = printer.printerName ?? null;
   document.querySelector('#edit-usb-list').innerHTML = '';
 
   const statusEl = document.querySelector('#edit-scan-status');
   if (editSelectedDisplayName) {
     statusEl.textContent = `Actual: ${editSelectedDisplayName} — Presiona "Buscar" para cambiar`;
-  } else if (editSelectedVendorId != null) {
+  } else if (!IS_WINDOWS && editSelectedVendorId != null) {
     statusEl.textContent = `Actual: VID:0x${editSelectedVendorId.toString(16).padStart(4,'0')} PID:0x${editSelectedProductId.toString(16).padStart(4,'0')} — Presiona "Buscar" para cambiar`;
   } else {
     statusEl.textContent = 'Sin impresora asignada. Presiona "Buscar".';
@@ -243,7 +253,7 @@ async function openEditPrinterModal(printerId) {
 document.querySelector('#btn-scan-usb-edit').addEventListener('click', () => {
   scanAndShowUsbPrinters(
     '#edit-usb-list', '#edit-scan-status',
-    (vid, pid, name) => { editSelectedVendorId = vid; editSelectedProductId = pid; editSelectedDisplayName = name; },
+    (vid, pid, name, printerName) => { editSelectedVendorId = vid; editSelectedProductId = pid; editSelectedDisplayName = name; editSelectedPrinterName = printerName; },
     editSelectedVendorId, editSelectedProductId
   );
 });
@@ -262,7 +272,9 @@ document.querySelector('#btn-edit-printer-save').addEventListener('click', async
 
   const scaleId = document.querySelector('#edit-printer-scale').value;
 
-  if (editSelectedVendorId == null)
+  if (IS_WINDOWS && !editSelectedPrinterName)
+    return showPrinterAlert('#edit-printer-alert', 'danger', 'Selecciona una impresora de la lista');
+  if (!IS_WINDOWS && editSelectedVendorId == null)
     return showPrinterAlert('#edit-printer-alert', 'danger', 'Selecciona una impresora USB');
 
   const btn = document.querySelector('#btn-edit-printer-save');
@@ -277,6 +289,7 @@ document.querySelector('#btn-edit-printer-save').addEventListener('click', async
   const result = await window.electronAPI.editPrinter(editingPrinterId, {
     vendorId:    editSelectedVendorId,
     productId:   editSelectedProductId,
+    printerName: editSelectedPrinterName || null,
     displayName: editSelectedDisplayName || '',
     protocol,
     scaleId:     scaleId || null,

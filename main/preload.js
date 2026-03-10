@@ -54,4 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Navigation
   navigateToApp: () => ipcRenderer.send('navigate-to-app'),
   navigateToLogin: () => ipcRenderer.send('navigate-to-login'),
+
+  // Platform info
+  platform: process.platform,
 });

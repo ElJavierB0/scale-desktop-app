@@ -1,7 +1,60 @@
 const os   = require('os');
+const fs   = require('fs');
 const path = require('path');
 const { BrowserWindow } = require('electron');
 const { log } = require('./logger');
+
+// ── Windows raw-print via PowerShell + Win32 WritePrinter API ─────────────────
+const WIN_PS1_CONTENT = `\
+Param(
+  [Parameter(Mandatory=$true)][string]$printerName,
+  [Parameter(Mandatory=$true)][string]$filePath
+)
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class RawPrint {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+  public class DOCINFOA {
+    [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+    [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+    [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+  }
+  [DllImport("winspool.Drv", EntryPoint="OpenPrinterA")]
+  public static extern bool OpenPrinter(string n, out IntPtr h, IntPtr d);
+  [DllImport("winspool.Drv")] public static extern bool ClosePrinter(IntPtr h);
+  [DllImport("winspool.Drv", EntryPoint="StartDocPrinterA")]
+  public static extern Int32 StartDocPrinter(IntPtr h, Int32 l, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA d);
+  [DllImport("winspool.Drv")] public static extern bool EndDocPrinter(IntPtr h);
+  [DllImport("winspool.Drv")] public static extern bool StartPagePrinter(IntPtr h);
+  [DllImport("winspool.Drv")] public static extern bool EndPagePrinter(IntPtr h);
+  [DllImport("winspool.Drv")]
+  public static extern bool WritePrinter(IntPtr h, IntPtr b, Int32 c, out Int32 w);
+  public static bool Send(string name, byte[] bytes) {
+    IntPtr hp; Int32 dw = 0;
+    if (!OpenPrinter(name, out hp, IntPtr.Zero)) return false;
+    var d = new DOCINFOA { pDocName = "TSPL", pDataType = "RAW" };
+    StartDocPrinter(hp, 1, d); StartPagePrinter(hp);
+    IntPtr ptr = Marshal.AllocCoTaskMem(bytes.Length);
+    Marshal.Copy(bytes, 0, ptr, bytes.Length);
+    WritePrinter(hp, ptr, bytes.Length, out dw);
+    Marshal.FreeCoTaskMem(ptr);
+    EndPagePrinter(hp); EndDocPrinter(hp); ClosePrinter(hp);
+    return dw == bytes.Length;
+  }
+}
+'@ -Language CSharp
+$bytes = [System.IO.File]::ReadAllBytes($filePath)
+if (-not [RawPrint]::Send($printerName, $bytes)) { exit 1 }
+`;
+
+let _winPs1Path = null;
+function getWinPs1Path() {
+  if (_winPs1Path && fs.existsSync(_winPs1Path)) return _winPs1Path;
+  _winPs1Path = path.join(os.tmpdir(), 'superpesca_rawprint.ps1');
+  fs.writeFileSync(_winPs1Path, WIN_PS1_CONTENT, 'utf8');
+  return _winPs1Path;
+}
 
 // ── Render ticket.html → 1-bit bitmap via Electron offscreen ─────────────────
 async function renderTicketBitmap(job, printer) {
@@ -303,16 +356,10 @@ class PrinterService {
   }
 
   async printTicket(job, printer) {
-    const { vendorId, productId } = printer;
-    if (vendorId == null || productId == null) {
-      throw new Error('Tiquetera sin dispositivo USB configurado');
-    }
-
     const protocol = printer.protocol || 'tspl';
     let cmd;
 
     if (protocol === 'tspl') {
-      // TSPL nativo: texto + QR — sin renderizado HTML
       cmd = buildTicketTSPL(job, printer, this.config.serverUrl || '');
     } else {
       // ESC/POS: renderizar ticket.html a bitmap raster
@@ -330,7 +377,38 @@ class PrinterService {
       cmd = Buffer.concat([header, inverted, footer]);
     }
 
-    // 3. Enviar al USB
+    if (process.platform === 'win32') {
+      if (!printer.printerName) throw new Error('Tiquetera sin nombre de impresora Windows configurado');
+      await this._printWindows(printer.printerName, cmd);
+    } else {
+      const { vendorId, productId } = printer;
+      if (vendorId == null || productId == null) throw new Error('Tiquetera sin dispositivo USB configurado');
+      await this._printUsb(vendorId, productId, cmd);
+    }
+  }
+
+  // ── Windows: raw print via PowerShell + Win32 WritePrinter ──────────────────
+  async _printWindows(printerName, cmd) {
+    const { execFile } = require('child_process');
+    const tmpFile = path.join(os.tmpdir(), `tspl_${Date.now()}.bin`);
+    fs.writeFileSync(tmpFile, cmd);
+
+    return new Promise((resolve, reject) => {
+      execFile('powershell', [
+        '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', getWinPs1Path(),
+        '-printerName', printerName,
+        '-filePath', tmpFile,
+      ], { timeout: 10000 }, (err, _stdout, stderr) => {
+        try { fs.unlinkSync(tmpFile); } catch (_) {}
+        if (err) return reject(new Error(`Error imprimiendo (Windows): ${stderr || err.message}`));
+        resolve();
+      });
+    });
+  }
+
+  // ── Mac/Linux: raw print via node-usb ───────────────────────────────────────
+  async _printUsb(vendorId, productId, cmd) {
     const adapter = new UsbPrinterAdapter(vendorId, productId);
 
     await new Promise((resolve, reject) => {
