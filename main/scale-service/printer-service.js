@@ -96,6 +96,94 @@ async function renderTicketBitmap(job, printer) {
   });
 }
 
+// ── TSPL ticket builder (texto nativo + QR) ──────────────────────────────────
+function buildTicketTSPL(job, printer, serverUrl) {
+  const wMm  = printer.labelWidthMm  || 50;
+  const hMm  = printer.labelHeightMm || 25;
+  const wDot = Math.round(wMm * 8);   // 203 DPI ≈ 8 dots/mm
+  const hDot = Math.round(hMm * 8);
+
+  const now     = new Date();
+  const dateStr = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+  // Escala de fuente proporcional al ancho: 1x para etiquetas ~50mm, 2x para ~100mm+
+  const scale = Math.max(1, Math.floor(wMm / 50));
+
+  // Métricas de fuentes TSPL × escala (dots/char)
+  const FW = { '1': 8 * scale, '2': 12 * scale, '4': 24 * scale };
+  const FH = { '1': 12 * scale, '2': 20 * scale, '4': 32 * scale };
+
+  // QR: cellwidth adaptativo (4 para 50mm, 5 para 100mm+)
+  const QR_CW = scale + 3;
+  const QR_X  = Math.floor(wDot * 0.62);  // 62% del ancho desde la izquierda
+
+  // Truncado dinámico: silencioso (sin indicador)
+  const trunc = (text, font, maxDots) => {
+    const max = Math.floor(maxDots / FW[font]);
+    return text.length > max ? text.substring(0, max) : text;
+  };
+  const cx = (text, f) => Math.max(0, Math.floor((wDot - text.length * FW[f]) / 2));
+
+  const orderId = String(job.order_id);          // sin padding de ceros
+  const weight  = parseFloat(job.weight).toFixed(2);
+  const unit    = (job.unit || 'KGM').toLowerCase();
+  const qrData  = serverUrl ? `${serverUrl}/orders/${job.order_id}` : `Pedido #${orderId}`;
+
+  // Fila 1: negocio del cliente (o nombre si no tiene negocio)
+  const rawHeader = (job.client_business || job.client_name || '');
+  const header    = trunc(rawHeader, '2', wDot - 10);
+
+  // Fila 2: producto — ocupa toda la fila, sin restricción del QR
+  const rawProduct = (job.product_name || '');
+  const product    = trunc(rawProduct, '2', wDot - 10);
+
+  const QR_X_AVAIL = wDot - QR_X - 5;           // dots disponibles desde QR_X hasta el borde
+  const PED_STR = trunc(`Pedido #${orderId}`, '2', QR_X_AVAIL);
+  const W_STR   = `${weight} ${unit}`;
+  const DT_STR  = `${dateStr}  ${timeStr}`;
+
+  // Coordenadas Y calculadas desde el contenido
+  const Y_HDR  = 4;
+  const Y_DIV1 = Y_HDR  + FH['2'] + 4;   // bajo fila 1 (negocio)
+  const Y_PROD = Y_DIV1 + 3;
+  const Y_DIV2 = Y_PROD + FH['2'] + 4;   // bajo fila 2 (producto)
+  const Y_WGHT = Y_DIV2 + 3;             // peso + pedido en la misma fila
+  const Y_QR   = Y_WGHT + FH['4'] + 3;   // QR justo debajo del peso/pedido
+  const Y_DIV3 = hDot - FH['1'] - 8;     // barra inferior
+  const Y_DATE = Y_DIV3 + 3;
+
+  // QR cellwidth: el máximo que cabe en la zona disponible
+  const qrZoneDots = Y_DIV3 - Y_QR;
+  const qrModules  = 29;   // versión 3 (URLs ~35 chars, ECC M)
+  const QR_CW_CALC = Math.max(2, Math.min(scale + 3, Math.floor(qrZoneDots / qrModules)));
+
+  const lines = [
+    `SIZE ${wMm} mm,${hMm} mm\r\n`,
+    `GAP 3 mm,0\r\n`,
+    `CODEPAGE 1252\r\n`,
+    `CLS\r\n`,
+    // Fila 1: negocio/nombre cliente, centrado
+    `TEXT ${cx(header, '2')},${Y_HDR},"2",0,${scale},${scale},"${header}"\r\n`,
+    `BAR 0,${Y_DIV1},${wDot},2\r\n`,
+    // Fila 2: producto (izquierda, truncado al ancho disponible antes del QR)
+    `TEXT 5,${Y_PROD},"2",0,${scale},${scale},"${product}"\r\n`,
+    `BAR 0,${Y_DIV2},${wDot},2\r\n`,
+    // Fila 3: peso (izq.) y pedido (der.) en la misma línea — QR abajo a la derecha
+    `TEXT 5,${Y_WGHT},"4",0,${scale},${scale},"${W_STR}"\r\n`,
+    `TEXT ${QR_X},${Y_WGHT},"2",0,${scale},${scale},"${PED_STR}"\r\n`,
+    `QRCODE ${QR_X},${Y_QR},M,${QR_CW_CALC},A,0,"${qrData}"\r\n`,
+    // Barra inferior + fecha/hora
+    `BAR 0,${Y_DIV3},${wDot},2\r\n`,
+    `TEXT 5,${Y_DATE},"1",0,${scale},${scale},"${DT_STR}"\r\n`,
+    `PRINT 1,1\r\n`,
+  ];
+
+  // latin1 (ISO-8859-1): cada char de JS se mapea 1:1 a su byte
+  // Para el rango español (á é í ó ú ñ ü Á É...) es idéntico a CP1252
+  return Buffer.from(lines.join(''), 'latin1');
+}
+
 // ── USB Printer Adapter (node-usb v2.x) ──────────────────────────────────────
 class UsbPrinterAdapter {
   constructor(vendorId, productId) {
@@ -194,7 +282,10 @@ class PrinterService {
         );
 
         if (!printer) {
-          log('debug', `Sin tiquetera activa para bascula ${job.scale_identifier} (job #${job.id})`);
+          // No hay impresora activa ahora → descartar el job para que no se acumule.
+          // Si la impresora se reactiva después, solo imprime los jobs nuevos.
+          log('debug', `Sin tiquetera activa para bascula ${job.scale_identifier}, descartando job #${job.id}`);
+          this.apiClient.completePrintJob(job.id).catch(() => {});
           continue;
         }
 
@@ -217,33 +308,24 @@ class PrinterService {
       throw new Error('Tiquetera sin dispositivo USB configurado');
     }
 
-    // 1. Renderizar ticket.html → bitmap 1-bit
-    const { data, bytesPerRow, height, wMm, hMm } = await renderTicketBitmap(job, printer);
-
-    // 2. Construir comando según protocolo
     const protocol = printer.protocol || 'tspl';
     let cmd;
 
     if (protocol === 'tspl') {
-      // TSPL BITMAP: SIZE → GAP → CLS → BITMAP x,y,bytesPerRow,height,mode,<data> → PRINT
-      const header = `SIZE ${wMm} mm,${hMm} mm\r\nGAP 3 mm,0\r\nCLS\r\nBITMAP 0,0,${bytesPerRow},${height},0,`;
-      const footer = '\r\nPRINT 1,1\r\n';
-      cmd = Buffer.concat([Buffer.from(header, 'ascii'), data, Buffer.from(footer, 'ascii')]);
+      // TSPL nativo: texto + QR — sin renderizado HTML
+      cmd = buildTicketTSPL(job, printer, this.config.serverUrl || '');
     } else {
-      // ESC/POS raster: GS v 0 (bit image mode)
-      const ESC = '\x1b';
-      const GS  = '\x1d';
+      // ESC/POS: renderizar ticket.html a bitmap raster
+      const { data, bytesPerRow, height } = await renderTicketBitmap(job, printer);
       const wBytes = bytesPerRow;
-      const hLines  = height;
-      // GS v 0: m=0 (normal density), xL xH yL yH + data
+      const hLines = height;
       const header = Buffer.from([
-        0x1B, 0x40,                         // ESC @ initialize
-        0x1D, 0x76, 0x30, 0x00,             // GS v 0 mode=0
-        wBytes & 0xFF, (wBytes >> 8) & 0xFF, // xL xH (width in bytes)
-        hLines & 0xFF, (hLines >> 8) & 0xFF, // yL yH (height in lines)
+        0x1B, 0x40,
+        0x1D, 0x76, 0x30, 0x00,
+        wBytes & 0xFF, (wBytes >> 8) & 0xFF,
+        hLines & 0xFF, (hLines >> 8) & 0xFF,
       ]);
-      const footer = Buffer.from([0x0A, 0x0A, 0x0A]); // 3 LF feeds
-      // Invert bits for ESC/POS (1=black, 0=white, opposite of TSPL)
+      const footer   = Buffer.from([0x0A, 0x0A, 0x0A]);
       const inverted = Buffer.from(data.map((b) => ~b & 0xFF));
       cmd = Buffer.concat([header, inverted, footer]);
     }
