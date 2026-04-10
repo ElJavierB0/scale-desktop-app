@@ -22,7 +22,7 @@ function registerHandlers(getMainWindow) {
   // Step 2: Register station
   ipcMain.handle('register-station', async (_event, name) => {
     const config = configManager.getAll();
-    const client = new ApiClient({ serverUrl: config.serverUrl, bearerToken: config.bearerToken });
+    const client = new ApiClient({ serverUrl: config.serverUrl, bearerToken: config.bearerToken, stationKey: config.stationKey });
     const result = await client.registerStation(name);
 
     if (result.success) {

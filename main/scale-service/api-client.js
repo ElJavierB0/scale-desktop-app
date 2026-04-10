@@ -46,6 +46,11 @@ class ApiClient {
 
   async registerStation(name) {
     try {
+      const body = { name };
+      if (this.stationKey) {
+        body.station_key = this.stationKey;
+      }
+
       const response = await fetch(this.url('/register'), {
         method: 'POST',
         headers: {
@@ -53,7 +58,7 @@ class ApiClient {
           'Authorization': `Bearer ${this.bearerToken}`,
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(5000),
       });
 
