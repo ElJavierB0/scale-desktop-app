@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+    content="default-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:;">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif;
       color: #000;
-      /* width y font-size se setean dinámicamente por JS según el tamaño de etiqueta */
     }
 
     /* ── Layout COMPACTO: etiquetas pequeñas (alto ≤ 40mm) ── */
@@ -20,6 +19,7 @@
       justify-content: center;
       padding: 1.5mm 2mm;
       gap: 0;
+      font-family: 'Courier New', Courier, monospace;
     }
     body.compact .c-title   { font-size: 6px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; text-align: center; }
     body.compact .c-folio   { font-size: 7px; font-weight: bold; text-align: center; }
@@ -29,9 +29,10 @@
     body.compact .c-unit    { font-size: 8px; font-weight: bold; }
     body.compact .c-meta    { font-size: 5.5px; text-align: center; color: #333; margin-top: 1mm; }
 
-    /* ── Layout NORMAL: recibos más grandes (alto > 40mm) ── */
+    /* ── Layout NORMAL: recibos medianos (40mm < alto ≤ 90mm de ancho) ── */
     body.normal {
       padding: 3mm 3mm;
+      font-family: 'Courier New', Courier, monospace;
     }
     body.normal .n-header       { text-align: center; margin-bottom: 2mm; }
     body.normal .n-header-title { font-size: 10px; font-weight: bold; letter-spacing: 0.5px; }
@@ -45,34 +46,219 @@
     body.normal .n-weight-big   { font-weight: bold; letter-spacing: 1px; line-height: 1; }
     body.normal .n-weight-unit  { font-weight: bold; }
     body.normal .n-footer       { text-align: center; font-size: 7px; margin-top: 2mm; }
+
+    /* ── Layout GRANDE: 102×152mm estilo Mercado Libre ── */
+    body.large {
+      display: flex;
+      flex-direction: column;
+      padding: 4mm 4mm;
+      gap: 0;
+    }
+    body.large .l-divider {
+      border: none;
+      border-top: 1.5px solid #000;
+      margin: 3mm 0;
+    }
+    /* Header: logo + nombre negocio */
+    body.large .l-header {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      padding-bottom: 1mm;
+    }
+    body.large .l-logo {
+      width: 22mm;
+      height: 14mm;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    body.large .l-logo-placeholder {
+      width: 22mm;
+      height: 14mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ccc;
+      border-radius: 2mm;
+      font-size: 7px;
+      color: #888;
+      flex-shrink: 0;
+    }
+    body.large .l-business {
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1.2;
+      flex: 1;
+    }
+    /* Cliente */
+    body.large .l-client {
+      font-size: 13px;
+      font-weight: bold;
+      text-align: center;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    /* Producto */
+    body.large .l-product {
+      font-size: 13px;
+      font-weight: bold;
+      text-align: left;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    /* Peso */
+    body.large .l-peso-label {
+      font-size: 9px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 1px;
+      color: #444;
+      margin-bottom: 1mm;
+      text-transform: uppercase;
+    }
+    body.large .l-peso-block {
+      text-align: center;
+      line-height: 1;
+    }
+    body.large .l-peso-num {
+      font-size: 40px;
+      font-weight: bold;
+      letter-spacing: -1px;
+    }
+    body.large .l-peso-unit {
+      font-size: 22px;
+      font-weight: bold;
+    }
+    /* QR */
+    body.large .l-qr-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    body.large .l-qr {
+      width: 32mm;
+      height: 32mm;
+    }
+    /* Footer: pedido + fecha */
+    body.large .l-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 10px;
+    }
+    body.large .l-footer-row .l-label { color: #555; }
+    body.large .l-footer-row .l-value { font-weight: bold; }
+    /* Dirección */
+    body.large .l-address-row {
+      font-size: 10px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    body.large .l-address-row .l-label { color: #555; }
+    body.large .l-address-row .l-value { font-weight: bold; }
   </style>
 </head>
 <body>
-  <!-- Contenido inyectado por JS según el modo -->
   <script>
     const p   = new URLSearchParams(window.location.search);
     const wMm = parseFloat(p.get('w') || '80');
     const hMm = parseFloat(p.get('h') || '130');
 
-    const orderId     = '#PDR-' + (p.get('orderId') || '');
-    const clientName  = p.get('clientName') || '';
-    const productName = p.get('productName') || '';
-    const weight      = p.get('weight') || '0.000';
-    const date        = p.get('date') || '';
-    const time        = p.get('time') || '';
+    const orderId          = p.get('orderId') || '';
+    const clientName       = p.get('clientName') || '';
+    const clientBusiness   = p.get('clientBusiness') || '';
+    const productName      = p.get('productName') || '';
+    const weight           = p.get('weight') || '0.000';
+    const date             = p.get('date') || '';
+    const time             = p.get('time') || '';
+    const deliveryAddress  = p.get('deliveryAddress') || '';
+    const logoBase64       = p.get('logoBase64') || '';
+    const businessName     = p.get('businessName') || 'Super Pescadería Del Río';
+    const qrData           = p.get('qrData') || '';
 
     const body = document.body;
-    // Ancho del body = ancho de la etiqueta menos márgenes internos (manejado por padding)
     body.style.width  = wMm + 'mm';
     body.style.height = hMm + 'mm';
 
     const isCompact = hMm <= 40;
+    const isLarge   = wMm >= 90;   // 102mm o más → layout Mercado Libre
 
-    if (isCompact) {
+    if (isLarge) {
+      body.className = 'large';
+
+      const displayName = clientBusiness || clientName;
+      const logoHtml = logoBase64
+        ? `<img class="l-logo" src="${logoBase64}" alt="Logo">`
+        : `<div class="l-logo-placeholder">LOGO</div>`;
+
+      const addressHtml = deliveryAddress
+        ? `<hr class="l-divider">
+           <div class="l-address-row">
+             <span class="l-label">Entrega: </span><span class="l-value">${deliveryAddress}</span>
+           </div>`
+        : '';
+
+      const qrSrc = qrData
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}`
+        : '';
+
+      body.innerHTML = `
+        <!-- Header: logo + nombre negocio -->
+        <div class="l-header">
+          ${logoHtml}
+          <div class="l-business">${businessName}</div>
+        </div>
+        <hr class="l-divider">
+
+        <!-- Cliente -->
+        <div class="l-client">${displayName}</div>
+        <hr class="l-divider">
+
+        <!-- Producto -->
+        <div class="l-product">${productName}</div>
+
+        <!-- Peso -->
+        <div class="l-peso-label">Peso Neto</div>
+        <div class="l-peso-block">
+          <span class="l-peso-num">${weight}</span><span class="l-peso-unit"> kg</span>
+        </div>
+        <hr class="l-divider">
+
+        <!-- QR (generado offline via canvas) -->
+        <div class="l-qr-wrap">
+          <canvas class="l-qr" id="qrCanvas"></canvas>
+        </div>
+        <hr class="l-divider">
+
+        <!-- Pedido + fecha/hora -->
+        <div class="l-footer-row">
+          <span><span class="l-label">Pedido: </span><span class="l-value">#${orderId}</span></span>
+          <span><span class="l-label">Pesado: </span><span class="l-value">${date} ${time}</span></span>
+        </div>
+        ${addressHtml}
+      `;
+
+      // Generar QR en canvas con qrcodegen (si está disponible)
+      // El printer-service pasa el QR ya pre-renderizado como imagen base64
+      const qrImgB64 = p.get('qrImageBase64') || '';
+      const canvas   = document.getElementById('qrCanvas');
+      if (canvas && qrImgB64) {
+        const img = new Image();
+        img.onload = () => {
+          const ctx = canvas.getContext('2d');
+          canvas.width  = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = qrImgB64;
+      }
+
+    } else if (isCompact) {
       body.className = 'compact';
+      const orderId3 = '#PDR-' + orderId.padStart(3, '0');
       body.innerHTML = `
         <div class="c-title">Super Pescadería Del Río</div>
-        <div class="c-folio">${orderId} &nbsp;·&nbsp; ${clientName}</div>
+        <div class="c-folio">${orderId3} &nbsp;·&nbsp; ${clientName}</div>
         <div class="c-divider"></div>
         <div class="c-product">${productName}</div>
         <div style="text-align:center;line-height:1;margin:1mm 0;">
@@ -81,11 +267,10 @@
         <div class="c-meta">${date} ${time}</div>
       `;
     } else {
-      // Tamaño de fuente base escalado al ancho (min 7px, max 11px)
-      const baseFontPx = Math.min(11, Math.max(7, Math.round(wMm * 0.13)));
-      // Peso grande escalado
-      const weightPx   = Math.min(32, Math.max(16, Math.round(wMm * 0.38)));
+      const baseFontPx  = Math.min(11, Math.max(7, Math.round(wMm * 0.13)));
+      const weightPx    = Math.min(32, Math.max(16, Math.round(wMm * 0.38)));
       const weightUnitPx = Math.round(weightPx * 0.5);
+      const orderId3    = '#PDR-' + orderId.padStart(3, '0');
 
       body.className = 'normal';
       body.style.fontSize = baseFontPx + 'px';
@@ -97,7 +282,7 @@
         <hr class="n-divider">
         <div class="n-row">
           <span class="n-label">Pedido:</span>
-          <span class="n-value">${orderId}</span>
+          <span class="n-value">${orderId3}</span>
         </div>
         <div class="n-row">
           <span class="n-label">Cliente:</span>

@@ -1,8 +1,14 @@
 const os   = require('os');
 const fs   = require('fs');
 const path = require('path');
+const http  = require('http');
+const https = require('https');
 const { BrowserWindow } = require('electron');
 const { log } = require('./logger');
+
+// QR code library (instalada vía npm)
+let QRCode;
+try { QRCode = require('qrcode'); } catch (_) { QRCode = null; }
 
 // ── Windows raw-print via PowerShell + Win32 WritePrinter API ─────────────────
 const WIN_PS1_CONTENT = `\
@@ -56,8 +62,59 @@ function getWinPs1Path() {
   return _winPs1Path;
 }
 
+// ── Helpers: logo y QR como base64 ───────────────────────────────────────────
+
+/**
+ * Descarga una imagen desde una URL HTTP/HTTPS y la retorna como data URL base64.
+ * Retorna null si falla (sin crash).
+ */
+async function fetchLogoBase64(url) {
+  if (!url) return null;
+  try {
+    return await new Promise((resolve, reject) => {
+      const client = url.startsWith('https') ? https : http;
+      const req = client.get(url, { timeout: 5000 }, (res) => {
+        if (res.statusCode !== 200) { res.resume(); return resolve(null); }
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const buf  = Buffer.concat(chunks);
+          const ext  = (url.match(/\.(png|jpg|jpeg|gif|webp|svg)/i) || [])[1] || 'png';
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          resolve(`data:${mime};base64,${buf.toString('base64')}`);
+        });
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+  } catch (err) {
+    log('warn', `fetchLogoBase64 falló para ${url}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Genera un QR PNG como data URL base64 usando la librería qrcode.
+ * Retorna null si la librería no está disponible.
+ */
+async function generateQRBase64(text) {
+  if (!QRCode || !text) return null;
+  try {
+    return await QRCode.toDataURL(text, {
+      width:                240,
+      margin:               1,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+  } catch (err) {
+    log('warn', `generateQRBase64 falló: ${err.message}`);
+    return null;
+  }
+}
+
 // ── Render ticket.html → 1-bit bitmap via Electron offscreen ─────────────────
-async function renderTicketBitmap(job, printer) {
+async function renderTicketBitmap(job, printer, serverUrl) {
   const wMm = printer.labelWidthMm  || 50;
   const hMm = printer.labelHeightMm || 25;
 
@@ -74,15 +131,31 @@ async function renderTicketBitmap(job, printer) {
   const dateStr = now.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
   const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
 
+  // Para etiquetas grandes (≥90mm) obtener logo y QR como base64
+  let logoBase64     = null;
+  let qrImageBase64  = null;
+  if (wMm >= 90) {
+    const qrData = serverUrl ? `${serverUrl}/delivery-detail/${job.order_id}` : `Pedido #${job.order_id}`;
+    [logoBase64, qrImageBase64] = await Promise.all([
+      fetchLogoBase64(job.logo_url || null),
+      generateQRBase64(qrData),
+    ]);
+  }
+
   const query = {
-    orderId:     String(job.order_id).padStart(3, '0'),
-    clientName:  job.client_name  || '',
-    productName: job.product_name || '',
-    weight:      parseFloat(job.weight).toFixed(3),
-    date:        dateStr,
-    time:        timeStr,
-    w:           String(wMm),
-    h:           String(hMm),
+    orderId:         String(job.order_id),
+    clientName:      job.client_name   || '',
+    clientBusiness:  job.client_business || '',
+    productName:     job.product_name  || '',
+    weight:          parseFloat(job.weight).toFixed(2),
+    date:            dateStr,
+    time:            timeStr,
+    deliveryAddress: job.delivery_address || '',
+    businessName:    'Super Pescadería Del Río',
+    w:               String(wMm),
+    h:               String(hMm),
+    ...(logoBase64    && { logoBase64 }),
+    ...(qrImageBase64 && { qrImageBase64 }),
   };
 
   return new Promise((resolve, reject) => {
@@ -103,8 +176,8 @@ async function renderTicketBitmap(job, printer) {
 
     win.webContents.once('did-finish-load', async () => {
       try {
-        // Breve pausa para que terminen de aplicarse estilos/fuentes
-        await new Promise((r) => setTimeout(r, 200));
+        // Pausa para que terminen de renderizarse imágenes/estilos
+        await new Promise((r) => setTimeout(r, 350));
 
         const image = await win.webContents.capturePage();
         win.destroy();
@@ -149,7 +222,7 @@ async function renderTicketBitmap(job, printer) {
   });
 }
 
-// ── TSPL ticket builder (texto nativo + QR) ──────────────────────────────────
+// ── TSPL: etiqueta pequeña/mediana (texto nativo + QR) ───────────────────────
 function buildTicketTSPL(job, printer, serverUrl) {
   const wMm  = printer.labelWidthMm  || 50;
   const hMm  = printer.labelHeightMm || 25;
@@ -235,6 +308,31 @@ function buildTicketTSPL(job, printer, serverUrl) {
   // latin1 (ISO-8859-1): cada char de JS se mapea 1:1 a su byte
   // Para el rango español (á é í ó ú ñ ü Á É...) es idéntico a CP1252
   return Buffer.from(lines.join(''), 'latin1');
+}
+
+// ── TSPL: etiqueta grande (≥90mm) — bitmap completo desde HTML ───────────────
+/**
+ * Para etiquetas 102×152mm+: renderiza ticket.html como bitmap y lo
+ * envía como comando TSPL BITMAP. Permite logo, fuentes TrueType y QR
+ * renderizados en HTML, sin limitaciones del modo texto TSPL.
+ */
+async function buildLargeLabelTSPL(job, printer, serverUrl) {
+  const { data, bytesPerRow, height, wMm, hMm } = await renderTicketBitmap(job, printer, serverUrl);
+
+  // En el bitmap: 0=negro, 1=blanco. TSPL BITMAP: 1=negro (imprime punto).
+  const inverted = Buffer.from(data.map((b) => ~b & 0xFF));
+
+  // Construir el comando TSPL mezclando ASCII y binario
+  const header = Buffer.from(
+    `SIZE ${wMm} mm,${hMm} mm\r\n` +
+    `GAP 3 mm,0\r\n` +
+    `CLS\r\n` +
+    `BITMAP 0,0,${bytesPerRow},${height},0,`,
+    'ascii'
+  );
+  const footer = Buffer.from('\r\nPRINT 1,1\r\n', 'ascii');
+
+  return Buffer.concat([header, inverted, footer]);
 }
 
 // ── USB Printer Adapter (node-usb v2.x) ──────────────────────────────────────
@@ -336,7 +434,6 @@ class PrinterService {
 
         if (!printer) {
           // No hay impresora activa ahora → descartar el job para que no se acumule.
-          // Si la impresora se reactiva después, solo imprime los jobs nuevos.
           log('debug', `Sin tiquetera activa para bascula ${job.scale_identifier}, descartando job #${job.id}`);
           this.apiClient.completePrintJob(job.id).catch(() => {});
           continue;
@@ -357,13 +454,18 @@ class PrinterService {
 
   async printTicket(job, printer) {
     const protocol = printer.protocol || 'tspl';
+    const wMm      = printer.labelWidthMm || 50;
     let cmd;
 
-    if (protocol === 'tspl') {
+    if (protocol === 'tspl' && wMm >= 90) {
+      // Etiqueta grande (ej. 102×152mm): renderizar HTML → bitmap → TSPL BITMAP
+      cmd = await buildLargeLabelTSPL(job, printer, this.config.serverUrl || '');
+    } else if (protocol === 'tspl') {
+      // Etiqueta pequeña/mediana: TSPL texto nativo (rápido, sin dependencias de imagen)
       cmd = buildTicketTSPL(job, printer, this.config.serverUrl || '');
     } else {
       // ESC/POS: renderizar ticket.html a bitmap raster
-      const { data, bytesPerRow, height } = await renderTicketBitmap(job, printer);
+      const { data, bytesPerRow, height } = await renderTicketBitmap(job, printer, this.config.serverUrl || '');
       const wBytes = bytesPerRow;
       const hLines = height;
       const header = Buffer.from([
