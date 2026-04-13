@@ -10,6 +10,7 @@
     body {
       font-family: 'Arial', 'Helvetica Neue', Helvetica, sans-serif;
       color: #000;
+      background: #fff;
     }
 
     /* ── Layout COMPACTO: etiquetas pequeñas (alto ≤ 40mm) ── */
@@ -48,72 +49,77 @@
     body.normal .n-footer       { text-align: center; font-size: 7px; margin-top: 2mm; }
 
     /* ── Layout GRANDE: 102×152mm estilo Mercado Libre ── */
+    /* Las unidades "mm" en CSS mapean 1:1 al papel impreso (203 DPI).       */
     body.large {
       display: flex;
       flex-direction: column;
-      padding: 4mm 4mm;
-      gap: 0;
+      padding: 3mm;
+      background: #fff;
+    }
+    /* Cada sección tiene padding propio para separarse del divisor */
+    body.large .l-section {
+      padding: 3mm 0;
     }
     body.large .l-divider {
       border: none;
-      border-top: 1.5px solid #000;
-      margin: 3mm 0;
+      border-top: 0.4mm solid #000;
+      flex-shrink: 0;
     }
     /* Header: logo + nombre negocio */
     body.large .l-header {
       display: flex;
       align-items: center;
       gap: 3mm;
-      padding-bottom: 1mm;
+      padding: 1mm 0 2mm;
     }
     body.large .l-logo {
-      width: 22mm;
-      height: 14mm;
+      width: 20mm;
+      height: 13mm;
       object-fit: contain;
       flex-shrink: 0;
     }
     body.large .l-logo-placeholder {
-      width: 22mm;
-      height: 14mm;
+      width: 20mm;
+      height: 13mm;
       display: flex;
       align-items: center;
       justify-content: center;
-      border: 1px solid #ccc;
-      border-radius: 2mm;
-      font-size: 7px;
-      color: #888;
+      border: 0.3mm solid #bbb;
+      border-radius: 1.5mm;
+      font-size: 2.5mm;
+      color: #444;
       flex-shrink: 0;
     }
     body.large .l-business {
-      font-size: 14px;
-      font-weight: bold;
+      font-size: 5.5mm;
+      font-weight: 900;
       line-height: 1.2;
       flex: 1;
     }
     /* Cliente */
     body.large .l-client {
-      font-size: 13px;
-      font-weight: bold;
+      font-size: 6mm;
+      font-weight: 900;
       text-align: center;
       line-height: 1.3;
       word-break: break-word;
     }
     /* Producto */
     body.large .l-product {
-      font-size: 13px;
+      font-size: 5.5mm;
       font-weight: bold;
-      text-align: left;
+      text-align: center;
       line-height: 1.3;
       word-break: break-word;
     }
     /* Peso */
     body.large .l-peso-label {
-      font-size: 9px;
+      font-size: 2.8mm;
       font-weight: bold;
       text-align: center;
-      letter-spacing: 1px;
-      color: #444;
-      margin-bottom: 1mm;
+      letter-spacing: 0.4mm;
+      color: #555;
+      margin-bottom: 0.5mm;
       text-transform: uppercase;
     }
     body.large .l-peso-block {
@@ -121,41 +127,56 @@
       line-height: 1;
     }
     body.large .l-peso-num {
-      font-size: 40px;
-      font-weight: bold;
-      letter-spacing: -1px;
+      font-size: 18mm;
+      font-weight: 900;
+      letter-spacing: -0.5mm;
     }
     body.large .l-peso-unit {
-      font-size: 22px;
-      font-weight: bold;
+      font-size: 9mm;
+      font-weight: 900;
     }
     /* QR */
     body.large .l-qr-wrap {
       display: flex;
       justify-content: center;
       align-items: center;
+      padding: 1mm 0;
     }
     body.large .l-qr {
-      width: 32mm;
-      height: 32mm;
+      width: 30mm;
+      height: 30mm;
+      display: block;
     }
-    /* Footer: pedido + fecha */
-    body.large .l-footer-row {
+    /* Pedido — label izquierda, número derecha, ambos grandes */
+    body.large .l-pedido-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      font-size: 10px;
+      font-size: 6mm;
+      font-weight: 900;
+      line-height: 1.3;
     }
-    body.large .l-footer-row .l-label { color: #555; }
-    body.large .l-footer-row .l-value { font-weight: bold; }
+    body.large .l-pedido-row .l-label { font-weight: normal; color: #555; }
+    body.large .l-pedido-row .l-pedido-num { font-size: 10mm; font-weight: 900; line-height: 1; }
+    /* Pesado — label izquierda, fecha derecha */
+    body.large .l-pesado-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 4.5mm;
+      font-weight: bold;
+      color: #444;
+      margin-top: 1.5mm;
+    }
+    body.large .l-pesado-row .l-label { font-weight: normal; color: #444; }
     /* Dirección */
     body.large .l-address-row {
-      font-size: 10px;
+      font-size: 3.5mm;
+      font-weight: bold;
       line-height: 1.4;
       word-break: break-word;
     }
-    body.large .l-address-row .l-label { color: #555; }
-    body.large .l-address-row .l-value { font-weight: bold; }
+    body.large .l-address-row .l-label { font-weight: normal; color: #555; }
   </style>
 </head>
 <body>
@@ -187,71 +208,55 @@
       body.className = 'large';
 
       const displayName = clientBusiness || clientName;
-      const logoHtml = logoBase64
-        ? `<img class="l-logo" src="${logoBase64}" alt="Logo">`
-        : `<div class="l-logo-placeholder">LOGO</div>`;
 
       const addressHtml = deliveryAddress
         ? `<hr class="l-divider">
-           <div class="l-address-row">
-             <span class="l-label">Entrega: </span><span class="l-value">${deliveryAddress}</span>
-           </div>`
+           <div class="l-section l-address-row"><span class="l-label">Entrega: </span><span class="l-value">${deliveryAddress}</span></div>`
         : '';
 
-      const qrSrc = qrData
-        ? `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrData)}`
-        : '';
-
+      // Logo y QR se inyectan desde printer-service via executeJavaScript después de cargar
       body.innerHTML = `
         <!-- Header: logo + nombre negocio -->
         <div class="l-header">
-          ${logoHtml}
+          <img id="logoImg" class="l-logo" style="display:none" alt="Logo">
+          <div id="logoPlaceholder" class="l-logo-placeholder">SPR</div>
           <div class="l-business">${businessName}</div>
         </div>
         <hr class="l-divider">
 
         <!-- Cliente -->
-        <div class="l-client">${displayName}</div>
+        <div class="l-section l-client">${displayName}</div>
         <hr class="l-divider">
 
         <!-- Producto -->
-        <div class="l-product">${productName}</div>
+        <div class="l-section l-product">${productName}</div>
 
         <!-- Peso -->
         <div class="l-peso-label">Peso Neto</div>
-        <div class="l-peso-block">
+        <div class="l-section l-peso-block">
           <span class="l-peso-num">${weight}</span><span class="l-peso-unit"> kg</span>
         </div>
         <hr class="l-divider">
 
-        <!-- QR (generado offline via canvas) -->
-        <div class="l-qr-wrap">
-          <canvas class="l-qr" id="qrCanvas"></canvas>
+        <!-- QR — src inyectado desde printer-service -->
+        <div class="l-section l-qr-wrap">
+          <img id="qrImg" class="l-qr" style="display:none" alt="QR">
         </div>
         <hr class="l-divider">
 
-        <!-- Pedido + fecha/hora -->
-        <div class="l-footer-row">
-          <span><span class="l-label">Pedido: </span><span class="l-value">#${orderId}</span></span>
-          <span><span class="l-label">Pesado: </span><span class="l-value">${date} ${time}</span></span>
+        <!-- Pedido + Pesado -->
+        <div class="l-section">
+          <div class="l-pedido-row">
+            <span class="l-label">Pedido</span>
+            <span class="l-pedido-num">#${orderId}</span>
+          </div>
+          <div class="l-pesado-row">
+            <span class="l-label">Pesado</span>
+            <span>${date} ${time}</span>
+          </div>
         </div>
         ${addressHtml}
       `;
-
-      // Generar QR en canvas con qrcodegen (si está disponible)
-      // El printer-service pasa el QR ya pre-renderizado como imagen base64
-      const qrImgB64 = p.get('qrImageBase64') || '';
-      const canvas   = document.getElementById('qrCanvas');
-      if (canvas && qrImgB64) {
-        const img = new Image();
-        img.onload = () => {
-          const ctx = canvas.getContext('2d');
-          canvas.width  = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = qrImgB64;
-      }
 
     } else if (isCompact) {
       body.className = 'compact';

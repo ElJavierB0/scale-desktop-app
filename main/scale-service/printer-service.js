@@ -142,11 +142,13 @@ async function renderTicketBitmap(job, printer, serverUrl) {
     ]);
   }
 
+  // Logo y QR NO van en query params (pueden ser 10-100KB base64 → URL demasiado larga).
+  // Se inyectan via executeJavaScript después de que la página cargue.
   const query = {
     orderId:         String(job.order_id),
-    clientName:      job.client_name   || '',
+    clientName:      job.client_name     || '',
     clientBusiness:  job.client_business || '',
-    productName:     job.product_name  || '',
+    productName:     job.product_name    || '',
     weight:          parseFloat(job.weight).toFixed(2),
     date:            dateStr,
     time:            timeStr,
@@ -154,17 +156,16 @@ async function renderTicketBitmap(job, printer, serverUrl) {
     businessName:    'Super Pescadería Del Río',
     w:               String(wMm),
     h:               String(hMm),
-    ...(logoBase64    && { logoBase64 }),
-    ...(qrImageBase64 && { qrImageBase64 }),
   };
 
   return new Promise((resolve, reject) => {
     const win = new BrowserWindow({
-      show:        false,
-      width:       winW,
-      height:      winH,
-      frame:       false,
-      skipTaskbar: true,
+      show:            false,
+      width:           winW,
+      height:          winH,
+      frame:           false,
+      skipTaskbar:     true,
+      backgroundColor: '#ffffff',
       webPreferences: {
         nodeIntegration:  false,
         contextIsolation: true,
@@ -176,8 +177,28 @@ async function renderTicketBitmap(job, printer, serverUrl) {
 
     win.webContents.once('did-finish-load', async () => {
       try {
+        // Inyectar logo y QR via JS (evita límite de tamaño en query string)
+        if (logoBase64) {
+          await win.webContents.executeJavaScript(`
+            (function() {
+              var img = document.getElementById('logoImg');
+              var ph  = document.getElementById('logoPlaceholder');
+              if (img) { img.src = ${JSON.stringify(logoBase64)}; img.style.display = ''; }
+              if (ph)  { ph.style.display = 'none'; }
+            })();
+          `);
+        }
+        if (qrImageBase64) {
+          await win.webContents.executeJavaScript(`
+            (function() {
+              var img = document.getElementById('qrImg');
+              if (img) { img.src = ${JSON.stringify(qrImageBase64)}; img.style.display = ''; }
+            })();
+          `);
+        }
+
         // Pausa para que terminen de renderizarse imágenes/estilos
-        await new Promise((r) => setTimeout(r, 350));
+        await new Promise((r) => setTimeout(r, 500));
 
         const image = await win.webContents.capturePage();
         win.destroy();
@@ -319,10 +340,8 @@ function buildTicketTSPL(job, printer, serverUrl) {
 async function buildLargeLabelTSPL(job, printer, serverUrl) {
   const { data, bytesPerRow, height, wMm, hMm } = await renderTicketBitmap(job, printer, serverUrl);
 
-  // En el bitmap: 0=negro, 1=blanco. TSPL BITMAP: 1=negro (imprime punto).
-  const inverted = Buffer.from(data.map((b) => ~b & 0xFF));
-
-  // Construir el comando TSPL mezclando ASCII y binario
+  // Convención TSPL BITMAP para esta impresora: 0=punto impreso (negro), 1=sin punto (blanco).
+  // El buffer `data` ya tiene: 0=negro, 1=blanco → se envía directo sin invertir.
   const header = Buffer.from(
     `SIZE ${wMm} mm,${hMm} mm\r\n` +
     `GAP 3 mm,0\r\n` +
@@ -332,7 +351,7 @@ async function buildLargeLabelTSPL(job, printer, serverUrl) {
   );
   const footer = Buffer.from('\r\nPRINT 1,1\r\n', 'ascii');
 
-  return Buffer.concat([header, inverted, footer]);
+  return Buffer.concat([header, data, footer]);
 }
 
 // ── USB Printer Adapter (node-usb v2.x) ──────────────────────────────────────
