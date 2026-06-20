@@ -32,8 +32,9 @@ const schema = {
       type: 'object',
       properties: {
         printerId: { type: 'string' },
-        vendorId: { type: 'number' },
-        productId: { type: 'number' },
+        vendorId: { type: ['number', 'null'], default: null },
+        productId: { type: ['number', 'null'], default: null },
+        printerName: { type: ['string', 'null'], default: null },
         displayName: { type: 'string', default: '' },
         protocol: { type: 'string', default: 'tspl' },
         scaleId: { type: 'string' },

@@ -11,12 +11,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
-            build_cmd: build:mac
           - os: windows-latest
             build_cmd: build:win
-          - os: ubuntu-latest
-            build_cmd: build:linux
 
     runs-on: ${{ matrix.os }}
 
